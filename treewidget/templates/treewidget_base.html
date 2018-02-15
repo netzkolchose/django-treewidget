@@ -1,0 +1,33 @@
+{% load i18n %}
+{% if widget.hide %}
+    <a class="treewidget_hide_link" data-hide="{{ widget.attrs.id }}" data-data="{{ widget.has_data }}"></a>
+{% endif %}
+<div class="treewidget-container" id="treewidget-container_{{ widget.attrs.id }}" {% include "attrs.html" %}>
+    {% if widget.search or widget.show_buttons %}
+    <ul class="object-tools">
+        {% if widget.search %}
+        <li><input id="treewidget-search_{{ widget.attrs.id }}" class="search" type="text" placeholder="{% trans "Search" %}"/></li>
+        {% endif %}
+        {% if widget.show_buttons %}
+        <li><a class="expand" href="javascript:void(0)">{% block expand %}{% trans "Expand" %}{% endblock %}</a></li>
+        <li><a class="collapse" href="javascript:void(0)">{% block collapse %}{% trans "Collapse" %}{% endblock %}</a></li>
+        <li><a class="selected" href="javascript:void(0)">{% block selected %}{% trans "Selected" %}{% endblock %}</a></li>
+        {% endif %}
+    </ul>
+    {% endif %}
+    <div class="treewidget"
+         id="treewidget_{{ widget.attrs.id }}"
+         data-treewidget-settings="{{ widget.settings }}"
+         {% if widget.attrs.disabled %}data-disabled="1"{% endif %}
+         data-multiple="{% if widget.multiple %}true{% else %}false{% endif %}"
+         data-search="{% if widget.search %}true{% else %}false{% endif %}"
+         data-sort="{{ widget.sort }}"
+         data-updateurl="{{ widget.update_url }}"
+         data-dnd="{{ widget.dnd }}"
+         data-moveurl="{{ widget.move_url }}"
+         data-appmodel="{{ widget.appmodel }}"
+         data-id="{{ widget.attrs.id }}">
+        {{ widget.content }}
+    </div>
+</div>
+{{ widget.super_content }}

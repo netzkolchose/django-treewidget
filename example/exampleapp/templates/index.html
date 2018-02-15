@@ -1,0 +1,31 @@
+{% load staticfiles %}
+<!doctype html>
+<html lang="de">
+<head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Formtest</title>
+    <script src="/static/exampleapp/jquery-3.3.1.min.js"></script>
+    <link href="/static/exampleapp/layout.css" type="text/css" media="all" rel="stylesheet" />
+    {{ form.media }}
+    {{ assets }}
+</head>
+<body>
+<div>
+    <ul class="navi">
+        <li><a href="{% url "bound" %}">ModelForm (bound)</a></li>
+        <li><a href="{% url "free" %}">Free Form (based on City model)</a></li>
+        <li><a href="{% url "free2" %}">Free Form (based on FreeTreeWidget)</a></li>
+        <li><a href="{% url "widget" %}">Single tree widget</a></li>
+    </ul>
+</div>
+    <form>
+        {% if form %}
+        <table>{{ form.as_table }}</table>
+        {% endif %}
+        {% if widget_content %}
+        <table><tr><td>{{ widget_content }}</td></tr></table>
+        {% endif %}
+    </form>
+</body>
+</html>

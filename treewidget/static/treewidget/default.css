@@ -1,0 +1,56 @@
+.treewidget ul {
+    margin-left: 0 !important;
+    padding-left: 0 !important;
+    padding-right: 0;
+}
+
+.treewidget {
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    min-height: 24px;
+}
+
+.treewidget-container {
+    min-width: 21em;
+}
+
+.errors .treewidget {
+    border: 1px solid #ba2121;
+}
+
+.errors input.search {
+    border: 1px solid #ccc;
+}
+
+.treewidget-container ul.object-tools {
+    margin-left: 0 !important;
+    padding-left: 0 !important;
+    margin-bottom: 12px;
+    padding-right: 0;
+}
+
+.treewidget-container ul.object-tools li {
+    padding: 0;
+    display: inline-block;
+    float: none;
+}
+
+.treewidget-container ul.object-tools li:first-child {
+    margin-left: 0;
+}
+
+.treewidget-container + .select2 {
+    display: none;
+}
+
+.treewidget-container + select {
+    display: none;
+}
+
+.treewidget-disabled {
+    background: rgba(208, 219, 230, 0.25);
+}
+
+.jstree-default .jstree-search {
+    color: inherit;
+}

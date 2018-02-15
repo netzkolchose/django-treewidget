@@ -1,0 +1,27 @@
+html, body {
+    font-family: Arial;
+    font-size: 14px;
+}
+
+a {
+    text-decoration: none;
+}
+
+table {
+    margin: auto;
+    border-collapse: collapse;
+    border: 1px solid #ddd;
+}
+
+td, th {
+    border: 1px solid #ddd;
+    padding: 20px;
+}
+
+.navi {
+    float: left;
+}
+
+.treewidget {
+    border-radius: 0px !important;
+}
