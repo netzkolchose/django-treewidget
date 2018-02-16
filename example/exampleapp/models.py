@@ -46,7 +46,6 @@ class Treebeardns(NS_Node):
         return '%s' % self.name
 
 
-@python_2_unicode_compatible
 class Example(models.Model):
     mptt = TreeForeignKey(Mptt, on_delete=models.CASCADE)
     treebeardmp = TreeForeignKey(Treebeardmp, on_delete=models.CASCADE, settings={'show_buttons': True})

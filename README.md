@@ -20,6 +20,7 @@ Just replace any foreign key, m2m or one2one tree model field with the provided 
 ### Customization ###
 
 The fields understand two additional arguments:
+
 - **settings**: Dictionary containing the optional boolean keys 'show_buttons'
 (shows "Expand", "Collapse" and "Selected" buttons), 'search' (for in-tree search),
 'dnd' (drag and drop support) and 'sort' (apply tree order in frontend). Defaults to `{}`.
