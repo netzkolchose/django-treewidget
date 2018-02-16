@@ -1,73 +1,59 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 from django.db import models
-from treewidget.fields import TreeForeignKey, TreeManyToManyField #, TreebeardForeignKey
-
-# mptt examples
 from mptt.models import MPTTModel
-
-
-class Region(MPTTModel):
-    class Meta:
-        verbose_name = 'region'
-        verbose_name_plural = 'regions'
-    name = models.CharField(max_length=63)
-    parent = TreeForeignKey('self', blank=True, null=True,
-                            settings={'show_buttons': True, 'search': True, 'sort': True, 'dnd': True})
-
-    #class MPTTMeta:
-    #    order_insertion_by=['-name']
-
-    def __unicode__(self):
-        return self.name
-
-
-class City(models.Model):
-    class Meta:
-        verbose_name = 'city'
-        verbose_name_plural = 'cities'
-    name = models.CharField(max_length=63)
-    regions = TreeManyToManyField(Region, related_name='cities',
-                                  settings={'show_buttons': True, 'search': True})
-
-    def __unicode__(self):
-        return self.name
-
-
-City.regions.through.__unicode__ = lambda obj: '%s - %s' % (obj.region.name, obj.city.name)
-
-
-# treebeard examples
 from treebeard.mp_tree import MP_Node
 from treebeard.al_tree import AL_Node
-from treebeard.forms import MoveNodeForm
+from treebeard.ns_tree import NS_Node
+from treewidget.fields import TreeForeignKey, TreeManyToManyField
+from django.utils.encoding import python_2_unicode_compatible
 
 
-class Category(MP_Node):
-    name = models.CharField(max_length=30)
+# django-mptt
+@python_2_unicode_compatible
+class Mptt(MPTTModel):
+    name = models.CharField(max_length=32)
+    parent = TreeForeignKey('self', blank=True, null=True, on_delete=models.CASCADE)
 
-    node_order_by = ['name']
+    def __str__(self):
+        return self.name
 
-    def __unicode__(self):
+
+@python_2_unicode_compatible
+class Treebeardmp(MP_Node):
+    name = models.CharField(max_length=32)
+
+    def __str__(self):
         return '%s' % self.name
 
 
-class AL_TestNodeSorted(AL_Node):
-    parent = models.ForeignKey('self',
-                               related_name='children_set',
-                               null=True,
-                               db_index=True)
-    node_order_by = ['val1', 'val2', 'desc']
-    val1 = models.IntegerField()
-    val2 = models.IntegerField()
-    desc = models.CharField(max_length=255)
+@python_2_unicode_compatible
+class Treebeardal(AL_Node):
+    name = models.CharField(max_length=32)
+    parent = models.ForeignKey('self', related_name='children_set', null=True,
+                               db_index=True, on_delete=models.CASCADE)
+    sib_order = models.PositiveIntegerField()
 
-    def __unicode__(self):
-        return '%s' % self.desc
+    def __str__(self):
+        return '%s' % self.name
 
 
-class Bla(models.Model):
-    name = models.CharField(max_length=30)
-    category = TreeForeignKey(Category, settings={'hidable': True, 'sort': True, 'dnd': True, 'search': True})
-    #al = models.ForeignKey(AL_TestNodeSorted, blank=True, null=True)
-    al = TreeForeignKey(AL_TestNodeSorted, settings={'hidable': True, 'sort': True, 'dnd': True, 'search': True})
+@python_2_unicode_compatible
+class Treebeardns(NS_Node):
+    name = models.CharField(max_length=32)
+
+    def __str__(self):
+        return '%s' % self.name
+
+
+@python_2_unicode_compatible
+class Example(models.Model):
+    mptt = TreeForeignKey(Mptt, on_delete=models.CASCADE)
+    treebeardmp = TreeForeignKey(Treebeardmp, on_delete=models.CASCADE, settings={'show_buttons': True})
+    treebeardal = TreeForeignKey(Treebeardal, on_delete=models.CASCADE, settings={'search': True})
+    treebeardns = TreeForeignKey(Treebeardns, on_delete=models.CASCADE, settings={'dnd': True})
+    mptt_many = TreeManyToManyField(Mptt, related_name='example_many',
+                                    settings={'show_buttons': True, 'search': True, 'dnd': True})
+    treebeardmp_many = TreeManyToManyField(Treebeardmp, related_name='example_many')
+    treebeardal_many = TreeManyToManyField(Treebeardal, related_name='example_many')
+    treebeardns_many = TreeManyToManyField(Treebeardns, related_name='example_many')

@@ -1,15 +1,17 @@
-from django.forms.widgets import SelectMultiple, Select, Input
-from django.forms import CharField, ModelChoiceField, ModelMultipleChoiceField
+from __future__ import unicode_literals
+from django.forms.widgets import SelectMultiple, Select
+from django.forms import ModelChoiceField, ModelMultipleChoiceField
 from django.utils.safestring import mark_safe
 from django.utils.html import escape
 from django.db import models
-from django.template import loader
 from django.conf import settings
 from json import dumps
 from django.urls import reverse, NoReverseMatch
-from treewidget.helper import (get_treetype, get_level, get_orderattr_json, get_orderattr_signs,
-                               get_appmodel, get_attribute)
-
+from treewidget.helper import (get_treetype, get_orderattr, get_orderattr_signs,
+                               get_appmodel, get_attribute, get_parent)
+import sys
+if sys.version_info >= (3, 0):
+    unicode = str
 
 TREEOPTIONS = {
     'plugins': ['wholerow'],
@@ -24,9 +26,10 @@ TREEOPTIONS = {
 
 
 class TreeModelWidgetMixin(object):
-    _mixin_template_name = 'treewidget.html'
     settings = {}
     treeoptions = ''
+    multiple = False
+    choices = None
 
     class Media:
         js = (
@@ -39,6 +42,22 @@ class TreeModelWidgetMixin(object):
             'treewidget/default.css'
         )}
 
+    def formatter(self, _id, el, qs, treetype, selected):
+        pk = u'treewidget_%s_%s' % (_id, el.pk)
+        parent = get_parent(el, treetype)
+        parent_pk = u'treewidget_%s_%s' % (_id, parent.pk) if parent else u'#'
+        return {
+            'id': pk,
+            'parent': parent_pk,
+            'text': escape(unicode(el)),
+            'data': {
+                'sort': get_orderattr(el, qs.model) if self.settings.get('sort', None) else u''
+            },
+            'state': {
+                'selected': True if str(el.pk) in selected else False
+            }
+        }
+
     def get_treelist(self, selected, _id):
         # choices are tree ordered, current is excluded
         qs = self.choices.queryset
@@ -48,7 +67,7 @@ class TreeModelWidgetMixin(object):
             selected = []
         elif not hasattr(selected, '__iter__'):
             selected = [selected]
-        selected = map(str, selected)  # convert to str make easy comparison with str(e.pk)
+        selected = list(map(str, selected))  # convert to str make easy comparison with str(e.pk)
 
         # rebuild qs from elements and selected with root nodes
         # to ensure we can actually draw a tree
@@ -72,89 +91,83 @@ class TreeModelWidgetMixin(object):
                     pass
         # new queryset
         qs = model.objects.filter(pk__in=ids)
-        for e in qs:
-            if hasattr(e, 'parent'):
-                print e.id, e.parent.pk if e.parent else 0, e.get_depth(), e
 
-        # walk the queryset and build tree
         treetype = get_treetype(model)
-        old_level = 1 if treetype == 'treebeard' else 0
-        stack = []
-        for i, e in enumerate(qs):
-            new_level = get_level(e, treetype)
-            if new_level > old_level:
-                stack.append(u'<ul>' * (new_level - old_level))
-            elif new_level < old_level:
-                stack.append(u'</li></ul></li>' * (old_level - new_level))
-            else:
-                if i:
-                    stack.append(u'</li>')
-            stack.append(
-                u'<li id="treewidget_%s_%d" data-jstree="%s"%s>'
-                % (_id, e.id,
-                   escape(u'{"selected":%s}' % u'true' if str(e.pk) in selected else u'false'),
-                   u' data-sort="%s"' % escape(get_orderattr_json(e, model))
-                        if self.settings.get('sort', None) else u''
-                   )
-            )
-            stack.append(escape(unicode(e)))
-            old_level = new_level
-        stack.append(u'</li>')
-        stack.append(u'</ul></li>' * old_level)
-        return u'<ul style="display:none">%s</ul>' % ''.join(stack)
+        return [self.formatter(_id, el, qs, treetype, selected) for el in qs]
 
     def _get_mixin_context(self, name, value, attrs=None):
+        # need something like a unique id, use name if none in attrs
+        if not attrs:
+            attrs = {'id': name}
+
+        # try to get ajax urls
         try:
             update_url = reverse('treewidget.get_node')
             move_url = reverse('treewidget.move_node')
         except NoReverseMatch:
             update_url = ''
             move_url = ''
+
+        # load settings if not supplied
         if not self.settings and hasattr(settings, 'TREEWIDGET_SETTINGS'):
             self.settings = settings.JSTREEWIDGET_SETTINGS
         if not self.treeoptions:
             self.treeoptions = dumps(settings.JSTREEWIDGET_TREEOPTIONS
                 if hasattr(settings, 'TREEWIDGET_TREEOPTIONS') else TREEOPTIONS)
-        start_hidden = self.settings.get('start_hidden', False)
-        return {'widget':
-            {
-                'name': name,
-                'value': value,
-                'attrs': attrs,
-                'settings': escape(self.treeoptions),
-                'has_data': bool(value) if start_hidden == 'data' else not start_hidden,
-                'content': mark_safe(self.get_treelist(value, attrs.get(u'id') if attrs else None)),
-                'search': self.settings.get('search', False),
-                'sort': get_orderattr_signs(self.choices.queryset.model) if self.settings.get('sort', None) else '[]',
-                'dnd': 'true' if self.settings.get('dnd', False) else 'false',
-                'show_buttons': self.settings.get('show_buttons', False),
-                'hide': self.settings.get('hidable', False),
-                'update_url': update_url,
-                'move_url': move_url if self.settings.get('dnd', False) else '',
-                'appmodel': get_appmodel(self.choices.queryset.model)
-            }
+
+        # additional settings for JS
+        additional = {
+            'id': attrs.get('id'),
+            'appmodel': get_appmodel(self.choices.queryset.model),
+            'disabled': attrs.get('disabled', False),
+            'multiple': self.multiple,
+            'search': self.settings.get('search', False),
+            'show_buttons': self.settings.get('show_buttons', False),
+            'sort': get_orderattr_signs(self.choices.queryset.model)
+                        if self.settings.get('sort') else [],
+            'updateurl': update_url,
+            'dnd': self.settings.get('dnd', False),
+            'moveurl': move_url if self.settings.get('dnd') else '',
+        }
+
+        # data for JS
+        json_data = u'{"settings": %s, "additional": %s, "treedata": %s}' % (
+            self.treeoptions,
+            dumps(additional),
+            dumps(self.get_treelist(value, attrs.get(u'id')))
+        )
+
+        # treewidget context
+        return {
+            'id': attrs.get('id'),
+            'search': self.settings.get('search', False),
+            'show_buttons': self.settings.get('show_buttons', False),
+            'json_data': mark_safe(json_data.replace(u'</script', u'<\/script')),
+            'disabled': attrs.get('disabled')
         }
 
 
 # model widgets
-class TreeModelMultipleWidget(TreeModelWidgetMixin, SelectMultiple):
-    def render(self, name, value, attrs=None, choices=()):
-        context = self._get_mixin_context(name, value, attrs)
-        context['widget']['multiple'] = True
-        context['widget']['super_content'] = super(TreeModelMultipleWidget, self).render(
-            name, value, attrs)
-        template = loader.get_template(self._mixin_template_name).render(context)
-        return mark_safe(template)
+class TreeModelMultipleWidget(SelectMultiple, TreeModelWidgetMixin):
+    template_name = 'treewidget.html'
+    multiple = True
+
+    def get_context(self, name, value, attrs):
+        ctx = super(TreeModelMultipleWidget, self).get_context(name, value, attrs)
+        ctx['widget']['treewidget'] = self._get_mixin_context(name, value, attrs)
+        ctx['widget']['treewidget']['super_template'] = super(TreeModelMultipleWidget, self).template_name
+        return ctx
 
 
-class TreeModelWidget(TreeModelWidgetMixin, Select):
-    def render(self, name, value, attrs=None, choices=()):
-        context = self._get_mixin_context(name, value, attrs)
-        context['widget']['multiple'] = False
-        context['widget']['super_content'] = super(TreeModelWidget, self).render(
-            name, value, attrs)
-        template = loader.get_template(self._mixin_template_name).render(context)
-        return mark_safe(template)
+class TreeModelWidget(Select, TreeModelWidgetMixin):
+    template_name = 'treewidget.html'
+    multiple = False
+
+    def get_context(self, name, value, attrs):
+        ctx = super(TreeModelWidget, self).get_context(name, value, attrs)
+        ctx['widget']['treewidget'] = self._get_mixin_context(name, value, attrs)
+        ctx['widget']['treewidget']['super_template'] = super(TreeModelWidget, self).template_name
+        return ctx
 
 
 # model form fields
@@ -226,27 +239,3 @@ class TreeManyToManyField(models.ManyToManyField):
         kwargs['settings'] = self.settings
         kwargs['treeoptions'] = self.treeoptions
         return super(TreeManyToManyField, self).formfield(**kwargs)
-
-
-# non model widgets and fields
-class FreeTreeWidget(Input):
-    class Media:
-        js = (
-            'treewidget/prepare.js',
-            'treewidget/jstree.min.js',
-            'treewidget/default.js'
-        )
-        css = {'screen': (
-            'treewidget/themes/default/style.css',
-            'treewidget/default.css'
-        )}
-
-    def render(self, name, value, attrs=None, renderer=None):
-        own = mark_safe('<div id="klaus_%s" class="klaus"></div>' % name)
-        attrs.setdefault('style', '')
-        attrs['style'] += 'display: none'
-        return own + super(FreeTreeWidget, self). render(name, value, attrs, renderer)
-
-
-class FreeTreeField(CharField):
-    widget = FreeTreeWidget

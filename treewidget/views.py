@@ -1,16 +1,19 @@
+from __future__ import unicode_literals
 from django.http import JsonResponse
 from django.apps import apps
 from django.contrib.auth.decorators import login_required
 from django.utils.html import escape
-from treewidget.helper import get_treetype, get_parent, get_orderattr
+from treewidget.helper import (get_treetype, get_parent, get_orderattr,
+                               get_prev, get_next, pk, get_move)
+import sys
+if sys.version_info >= (3, 0):
+    unicode = str
 
-
-# FIXME: prev/next - better distingish between change (move+text) and add
 @login_required
 def get_node(request):
     appmodel = request.GET.get('appmodel', None)
     ids = request.GET.getlist('ids')
-    sort = request.GET.get('sort', '0')
+    sort = request.GET.get('sort')
     if not appmodel or not ids:
         return JsonResponse([], safe=False)
     try:
@@ -23,17 +26,19 @@ def get_node(request):
             # get parent nodes
             parents = [{
                 'name': escape(unicode(p)),
-                'parent': None if not get_parent(p, treetype) else get_parent(p, treetype).pk,
+                'parent': pk(get_parent(p, treetype)),
                 'id': p.pk,
                 'sort': get_orderattr(p, model) if sort else None
             } for p in elem.get_ancestors()]
 
             result.append({
                 'name': escape(unicode(elem)),
-                'parent': None if not get_parent(elem, treetype) else get_parent(elem, treetype).pk,
+                'parent': pk(get_parent(elem, treetype)),
                 'id': elem.pk,
                 'sort': get_orderattr(elem, model) if sort else None,
-                'parents': parents
+                'parents': parents,
+                'prev': pk(get_prev(elem, treetype)),
+                'next': pk(get_next(elem, treetype))
             })
     except:
         return JsonResponse([], safe=False)
@@ -54,18 +59,17 @@ def move_node(request):
         app_label, model_name = appmodel.split('.')
         model = apps.get_model(app_label=app_label, model_name=model_name)
         treetype = get_treetype(model)
-        move = lambda node, treetype: node.move if treetype == 'treebeard' else node.move_to
-        node_order_by = getattr(model, 'node_order_by', None)
+        node_order = getattr(model, 'node_order_by', None)
         node = model.objects.get(pk=node_id)
         if prev_id:
             target = model.objects.get(pk=prev_id)
-            move(node, treetype)(target, 'sorted-sibling' if node_order_by else 'right')
+            get_move(node, treetype)(target, 'sorted-sibling' if node_order else 'right')
         elif next_id:
             target = model.objects.get(pk=next_id)
-            move(node, treetype)(target, 'sorted-sibling' if node_order_by else 'left')
+            get_move(node, treetype)(target, 'sorted-sibling' if node_order else 'left')
         elif parent_id:
             target = model.objects.get(pk=parent_id)
-            move(node, treetype)(target, 'sorted-child' if node_order_by else 'first-child')
+            get_move(node, treetype)(target, 'sorted-child' if node_order else 'first-child')
         else:
             return JsonResponse(False, safe=False)
         return JsonResponse(True, safe=False)
