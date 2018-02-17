@@ -5,9 +5,8 @@ from django.contrib.auth.decorators import login_required
 from django.utils.html import escape
 from treewidget.helper import (get_treetype, get_parent, get_orderattr,
                                get_prev, get_next, pk, get_move)
-import sys
-if sys.version_info >= (3, 0):
-    unicode = str
+from django.utils.encoding import force_text
+
 
 @login_required
 def get_node(request):
@@ -25,14 +24,14 @@ def get_node(request):
 
             # get parent nodes
             parents = [{
-                'name': escape(unicode(p)),
+                'name': escape(force_text(p)),
                 'parent': pk(get_parent(p, treetype)),
                 'id': p.pk,
                 'sort': get_orderattr(p, model) if sort else None
             } for p in elem.get_ancestors()]
 
             result.append({
-                'name': escape(unicode(elem)),
+                'name': escape(force_text(elem)),
                 'parent': pk(get_parent(elem, treetype)),
                 'id': elem.pk,
                 'sort': get_orderattr(elem, model) if sort else None,

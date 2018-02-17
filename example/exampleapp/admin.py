@@ -17,6 +17,11 @@ class MpttAdmin(DraggableMPTTAdmin):
         'indented_title',
     )
 
+    def get_form(self, request, obj=None, **kwargs):
+        form = super(MpttAdmin, self).get_form(request, obj=None, **kwargs)
+        form.base_fields['parent'].queryset = Mptt.objects.exclude(pk=1)
+        return form
+
 
 class TreebeardmpAdmin(TreeAdmin):
     form = movenodeform_factory(Treebeardmp)

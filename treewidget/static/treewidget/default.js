@@ -275,7 +275,6 @@
 
             // update from popup add/delete
             $('#'+attr_name).on('change', function(ev) {
-                console.log('change');
                 var current_options = [];
                 $('#'+attr_name+' option').each(function() {current_options.push(this.value);});
 
