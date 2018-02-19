@@ -3,9 +3,8 @@ from django.http import JsonResponse
 from django.apps import apps
 from django.contrib.auth.decorators import login_required
 from django.utils.html import escape
-from treewidget.helper import (get_treetype, get_parent, get_orderattr,
-                               get_prev, get_next, pk, get_move)
 from django.utils.encoding import force_text
+from treewidget.tree import TreeQuerySet, TreeNode
 
 
 @login_required
@@ -18,30 +17,29 @@ def get_node(request):
     try:
         app_label, model_name = appmodel.split('.')
         model = apps.get_model(app_label=app_label, model_name=model_name)
-        treetype = get_treetype(model)
         result = []
-        for elem in model.objects.filter(id__in=ids):
+        for elem in TreeQuerySet(model.objects.filter(id__in=ids)):
 
             # get parent nodes
             parents = [{
                 'name': escape(force_text(p)),
-                'parent': pk(get_parent(p, treetype)),
-                'id': p.pk,
-                'sort': get_orderattr(p, model) if sort else None
-            } for p in elem.get_ancestors()]
+                'parent': p.parent.node.pk if p.parent else None,
+                'id': p.node.pk,
+                'sort': p.ordering if sort else None
+            } for p in elem.ancestors]
 
             result.append({
                 'name': escape(force_text(elem)),
-                'parent': pk(get_parent(elem, treetype)),
-                'id': elem.pk,
-                'sort': get_orderattr(elem, model) if sort else None,
+                'parent': elem.parent.node.pk if elem.parent else None,
+                'id': elem.node.pk,
+                'sort': elem.ordering if sort else None,
                 'parents': parents,
-                'prev': pk(get_prev(elem, treetype)),
-                'next': pk(get_next(elem, treetype))
+                'prev': elem.prev_sibling.node.pk if elem.prev_sibling else None,
+                'next': elem.next_sibling.node.pk if elem.next_sibling else None
             })
+        return JsonResponse(result, safe=False)
     except:
         return JsonResponse([], safe=False)
-    return JsonResponse(result, safe=False)
 
 
 # FIXME: mptt ordering?
@@ -57,18 +55,19 @@ def move_node(request):
     try:
         app_label, model_name = appmodel.split('.')
         model = apps.get_model(app_label=app_label, model_name=model_name)
-        treetype = get_treetype(model)
+
+        # need node ordering for treebeard types
         node_order = getattr(model, 'node_order_by', None)
-        node = model.objects.get(pk=node_id)
+        node = TreeNode(model.objects.get(pk=node_id))
         if prev_id:
             target = model.objects.get(pk=prev_id)
-            get_move(node, treetype)(target, 'sorted-sibling' if node_order else 'right')
+            node.move(target, 'sorted-sibling' if node_order else 'right')
         elif next_id:
             target = model.objects.get(pk=next_id)
-            get_move(node, treetype)(target, 'sorted-sibling' if node_order else 'left')
+            node.move(target, 'sorted-sibling' if node_order else 'left')
         elif parent_id:
             target = model.objects.get(pk=parent_id)
-            get_move(node, treetype)(target, 'sorted-child' if node_order else 'first-child')
+            node.move(target, 'sorted-child' if node_order else 'first-child')
         else:
             return JsonResponse(False, safe=False)
         return JsonResponse(True, safe=False)

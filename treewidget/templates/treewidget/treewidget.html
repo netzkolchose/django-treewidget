@@ -1,5 +1,5 @@
 <div class="treewidget-container" id="treewidget-container_{{ widget.treewidget.id }}" {% include "django/forms/widgets/attrs.html" %}>
-    {% include "treebuttons.html" %}
+    {% include "treewidget/treebuttons.html" %}
     <div class="treewidget{% if widget.treewidget.disabled %} treewidget-disabled{% endif %}" id="treewidget_{{ widget.treewidget.id }}">
         <script type="application/json">
             {{ widget.treewidget.json_data }}

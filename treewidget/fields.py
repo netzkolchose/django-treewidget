@@ -2,15 +2,13 @@ from __future__ import unicode_literals
 from django.forms.widgets import SelectMultiple, Select
 from django.forms import ModelChoiceField, ModelMultipleChoiceField
 from django.utils.safestring import mark_safe
-from django.utils.html import escape
 from django.db import models
 from django.conf import settings
 from json import dumps
-from django.utils.encoding import force_text
 from django.urls import reverse, NoReverseMatch
-from treewidget.helper import (get_treetype, get_orderattr, get_orderattr_signs,
-                               get_appmodel, get_attribute, get_parent)
-
+from treewidget.helper import get_attribute
+from treewidget.tree import TreeQuerySet, get_treetype, MPTT
+from treewidget.formatters import Formatter
 
 TREEOPTIONS = {
     'plugins': ['wholerow'],
@@ -34,7 +32,7 @@ class TreeModelWidgetMixin(object):
         js = (
             'treewidget/prepare.js',
             'treewidget/jstree.min.js',
-            'treewidget/default.js'
+            'treewidget/default.js',
         )
         css = {'screen': (
             'treewidget/themes/default/style.css',
@@ -86,28 +84,11 @@ class TreeModelWidgetMixin(object):
         disabled = set(get_attribute(qs, 'pk')) - orig_pks
         return qs, selected, disabled
 
-    # TODO: cleanup this mess and make it public API
-    def node_formatter(self, _id, el, qs, treetype, selected, disabled):
-        pk = 'treewidget_%s_%s' % (_id, el.pk)
-        parent = get_parent(el, treetype)
-        parent_pk = 'treewidget_%s_%s' % (_id, parent.pk) if parent else '#'
-        return {
-            'id': pk,
-            'parent': parent_pk,
-            'text': escape(force_text(el)),
-            'data': {
-                'sort': get_orderattr(el, qs.model) if self.settings.get('sort') else []
-            },
-            'state': {
-                'selected': True if str(el.pk) in selected else False,
-                'disabled': True if el.pk in disabled else False
-            }
-        }
-
     def _get_mixin_context(self, name, selected, qs, disabled, attrs=None):
         # need something like a unique id, use name if none in attrs
-        if not attrs:
+        if not attrs or not attrs.get('id'):
             attrs = {'id': name}
+        attr_name = attrs.get('id')
 
         # try to get ajax urls
         try:
@@ -124,34 +105,35 @@ class TreeModelWidgetMixin(object):
             self.treeoptions = dumps(settings.JSTREEWIDGET_TREEOPTIONS
                 if hasattr(settings, 'TREEWIDGET_TREEOPTIONS') else TREEOPTIONS)
 
+        # use TreeQuerySet as abstraction layer for unique access in formatter
+        qs = TreeQuerySet(qs)
+        formatter = (self.settings.get('formatter') or Formatter)(
+            attr_name, selected, disabled, self.settings)
+
         # additional settings for JS
         additional = {
-            'id': attrs.get('id'),
-            'appmodel': get_appmodel(self.choices.queryset.model),
+            'id': attr_name,
+            'appmodel': qs.appmodel,
             'disabled': attrs.get('disabled', False),
             'multiple': self.multiple,
             'search': self.settings.get('search', False),
             'show_buttons': self.settings.get('show_buttons', False),
-            'sort': get_orderattr_signs(self.choices.queryset.model)
-                        if self.settings.get('sort') else [],
+            'sort': qs.ordering_signs if self.settings.get('sort') else [],
             'updateurl': update_url,
             'dnd': self.settings.get('dnd', False),
             'moveurl': move_url if self.settings.get('dnd') else '',
         }
 
-        _id = attrs.get('id')
-        treetype = get_treetype(qs.model)
-
         # data for JS
         json_data = '{"settings": %s, "additional": %s, "treedata": %s}' % (
             self.treeoptions,
             dumps(additional),
-            dumps([self.node_formatter(_id, el, qs, treetype, selected, disabled) for el in qs])
+            dumps([formatter.render(el) for el in qs])
         )
 
         # treewidget context
         return {
-            'id': attrs.get('id'),
+            'id': attr_name,
             'search': self.settings.get('search', False),
             'show_buttons': self.settings.get('show_buttons', False),
             'json_data': mark_safe(json_data.replace('</script', '<\/script')),
@@ -161,7 +143,7 @@ class TreeModelWidgetMixin(object):
 
 # model widgets
 class TreeSelectMultiple(SelectMultiple, TreeModelWidgetMixin):
-    template_name = 'treewidget.html'
+    template_name = 'treewidget/treewidget.html'
     multiple = True
 
     def get_context(self, name, value, attrs):
@@ -174,7 +156,7 @@ class TreeSelectMultiple(SelectMultiple, TreeModelWidgetMixin):
 
 
 class TreeSelect(Select, TreeModelWidgetMixin):
-    template_name = 'treewidget.html'
+    template_name = 'treewidget/treewidget.html'
     multiple = False
 
     def get_context(self, name, value, attrs):
@@ -189,7 +171,7 @@ class TreeSelect(Select, TreeModelWidgetMixin):
 # model form fields
 class TreeModelFieldMixin(object):
     def __init__(self, queryset, *args, **kwargs):
-        if hasattr(queryset, 'model') and get_treetype(queryset.model) == 'mptt':
+        if hasattr(queryset, 'model') and get_treetype(queryset.model) == MPTT:
             mptt_opts = queryset.model._mptt_meta
             queryset = queryset.order_by(mptt_opts.tree_id_attr, mptt_opts.left_attr)
         super(TreeModelFieldMixin, self).__init__(queryset, *args, **kwargs)

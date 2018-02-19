@@ -19,6 +19,7 @@ class Mptt(MPTTModel):
         return self.name
 
 
+# django-treebeard
 @python_2_unicode_compatible
 class Treebeardmp(MP_Node):
     name = models.CharField(max_length=32)
@@ -49,7 +50,7 @@ class Treebeardns(NS_Node):
 class Example(models.Model):
     mptt = TreeForeignKey(Mptt, on_delete=models.CASCADE)
     treebeardmp = TreeForeignKey(Treebeardmp, on_delete=models.CASCADE, settings={'show_buttons': True})
-    treebeardal = TreeForeignKey(Treebeardal, on_delete=models.CASCADE, settings={'search': True})
+    treebeardal = TreeForeignKey(Treebeardal, on_delete=models.CASCADE, settings={'search': True, 'dnd': True, 'sort': True})
     treebeardns = TreeForeignKey(Treebeardns, on_delete=models.CASCADE, settings={'dnd': True})
     mptt_many = TreeManyToManyField(Mptt, related_name='example_many',
                                     settings={'show_buttons': True, 'search': True, 'dnd': True})

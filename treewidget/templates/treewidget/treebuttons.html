@@ -5,9 +5,9 @@
             <li><input id="treewidget-search_{{ widget.treewidget.id }}" class="search" type="text" placeholder="{% trans "Search" %}..."/></li>
         {% endif %}
         {% if widget.treewidget.show_buttons %}
-            <li><a class="expand" href="javascript:void(0)">{% trans "Expand" %}</a></li>
-            <li><a class="collapse" href="javascript:void(0)">{% trans "Collapse" %}</a></li>
-            <li><a class="selected" href="javascript:void(0)">{% trans "Selected" %}</a></li>
+            <li><a class="expand" href="javascript:void(0)" title="{% trans "Expand" %}">{% trans "Expand" %}</a></li>
+            <li><a class="collapse" href="javascript:void(0)" title="{% trans "Collapse" %}">{% trans "Collapse" %}</a></li>
+            <li><a class="selected" href="javascript:void(0)" title="{% trans "Selected" %}">{% trans "Selected" %}</a></li>
         {% endif %}
     </ul>
 {% endif %}
