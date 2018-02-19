@@ -93,13 +93,16 @@ class TreeQuerySet(object):
     def __iter__(self):
         return self
 
-    def next(self):
+    def __next__(self):
         try:
             node = next(self.qs_it)
             return TreeNode(node, self.qs.model, self.treetype)
         except StopIteration:
             self.qs_it = iter(self.qs)
             raise StopIteration
+
+    def next(self):
+        return self.__next__()
 
     def __getattr__(self, name):
         try:
@@ -126,7 +129,6 @@ class TreeQuerySet(object):
 
     @property
     def ordering_signs(self):
-        print 'ordering:', self.ordering
         return [-1 if attr.startswith('-') else 1 for attr in self.ordering]
 
     @property
