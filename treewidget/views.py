@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 from django.http import JsonResponse
 from django.apps import apps
@@ -6,9 +7,22 @@ from django.utils.html import escape
 from django.utils.encoding import force_text
 from treewidget.tree import TreeQuerySet, TreeNode
 
+# TODO: check for individual permissions
+
 
 @login_required
 def get_node(request):
+    """
+    Ajax view for node changes with the admin popup.
+    Since django's popup functionality itself does not return
+    enough data to keep a tree in sync, we have to request
+    changes with additional tree data separately.
+    Handles add and tree moves with the popup.
+    Returns a list of requested nodes with their parents,
+    direct siblings and sort order.
+    :param request:
+    :return:
+    """
     appmodel = request.GET.get('appmodel', None)
     ids = request.GET.getlist('ids')
     sort = request.GET.get('sort')
@@ -42,9 +56,15 @@ def get_node(request):
         return JsonResponse([], safe=False)
 
 
-# FIXME: mptt ordering?
 @login_required
 def move_node(request):
+    """
+    Ajax view to evaluate and execute direct drag'n drop moves in the tree.
+    Returns True if the moves is legal, otherwise False.
+    Not used, if drag'n drop is disabled.
+    :param request:
+    :return:
+    """
     appmodel = request.GET.get('appmodel', None)
     node_id = request.GET.get('id', None)
     parent_id = request.GET.get('parent', None)

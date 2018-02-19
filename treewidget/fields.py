@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 from django.forms.widgets import SelectMultiple, Select
 from django.forms import ModelChoiceField, ModelMultipleChoiceField
@@ -27,7 +28,10 @@ TREEOPTIONS = {
 }
 
 
-class TreeModelWidgetMixin(object):
+class TreeSelectWidgetMixin(object):
+    """
+    Mixin class for SelectWidgets to provide the tree functionality.
+    """
     settings = {}
     treeoptions = ''
     multiple = False
@@ -46,6 +50,15 @@ class TreeModelWidgetMixin(object):
 
     # TODO: move heavy db related stuff elsewhere to get more reusable widget code
     def get_drawable_queryset(self, selected):
+        """
+        Helper method to ensure the data is drawable as a tree. To achieve this,
+        the method checks the ancestors of every entry in the original queryset
+        and the selected values. A missing value will be added and marked as
+        not selectable in the final tree.
+        NOTE: This method might add data not contained in the original queryset.
+        :param selected:
+        :return: (new queryset, selected values, disabled values)
+        """
         qs = self.choices.queryset
         model = qs.model
 
@@ -90,6 +103,17 @@ class TreeModelWidgetMixin(object):
         return qs, selected, disabled
 
     def _get_mixin_context(self, name, qs, selected, disabled, attrs=None):
+        """
+        Method to build the final tree widget context data.
+        The tree data is provided to jstree as json object in the DOM.
+        For a single node the datais rendered by `formatters.SelectFormatter`.
+        :param name:
+        :param qs:
+        :param selected:
+        :param disabled:
+        :param attrs:
+        :return:
+        """
         # need something like a unique id, use name if none in attrs
         if not attrs or not attrs.get('id'):
             attrs = {'id': name}
@@ -146,8 +170,7 @@ class TreeModelWidgetMixin(object):
         }
 
 
-# model widgets
-class TreeSelectMultiple(SelectMultiple, TreeModelWidgetMixin):
+class TreeSelectMultiple(SelectMultiple, TreeSelectWidgetMixin):
     template_name = 'treewidget/treewidget.html'
     multiple = True
 
@@ -160,7 +183,7 @@ class TreeSelectMultiple(SelectMultiple, TreeModelWidgetMixin):
         return ctx
 
 
-class TreeSelect(Select, TreeModelWidgetMixin):
+class TreeSelect(Select, TreeSelectWidgetMixin):
     template_name = 'treewidget/treewidget.html'
     multiple = False
 
@@ -173,7 +196,6 @@ class TreeSelect(Select, TreeModelWidgetMixin):
         return ctx
 
 
-# model form fields
 class TreeModelFieldMixin(object):
     def __init__(self, queryset, *args, **kwargs):
         if hasattr(queryset, 'model') and get_treetype(queryset.model) == MPTT:
@@ -204,7 +226,6 @@ class TreeModelChoiceField(TreeModelFieldMixin, ModelChoiceField):
         self.widget.treeoptions = self.treeoptions
 
 
-# model fields
 class TreeForeignKey(models.ForeignKey):
     def __init__(self, *args, **kwargs):
         self.settings = kwargs.pop('settings', {})

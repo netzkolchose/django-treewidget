@@ -2,6 +2,7 @@
 from __future__ import unicode_literals
 from django.db.models import QuerySet
 from django.utils.encoding import python_2_unicode_compatible
+
 try:
     from treebeard.models import Node as TreebeardNode
     HAS_TREEBEARD = True
@@ -18,7 +19,6 @@ except ImportError:
 TREEBEARD = {
     'root_level': 1,
     'model': {
-        #'order'     :   lambda model: ['sib_order'] if getattr(model, 'sib_order', None) else model.node_order_by or []
         'order'     :   lambda model: model.node_order_by or []
     },
     'node': {
@@ -55,6 +55,13 @@ class UnknownTreeImplementation(Exception):
 
 
 def get_treetype(model):
+    """
+    Return the function mapping of the real model tree implementation.
+
+    :raises UnknownTreeImplementation
+    :param model:
+    :return:
+    """
     if HAS_TREEBEARD and issubclass(model, TreebeardNode):
         return TREEBEARD
     elif HAS_MPTT and issubclass(model, MPTTModel):
@@ -63,6 +70,15 @@ def get_treetype(model):
 
 
 class TreeQuerySet(object):
+    """
+    Abstract model tree queryset proxy. It's main purpose is to decorate queryset methods
+    in a way, that objects are returned as TreeNode proxy objects for
+    common tree attribute access. The real model tree implementation must be known and
+    `get_treetype` must return a method mapping for the real tree attributes
+    (see `MPTT` and `TREEBEARD` for example definitions).
+
+    The real queryset can be accessed via the `qs` attribute.
+    """
     def __init__(self, qs, treetype=None):
         self.qs = qs
         self.qs_it = iter(self.qs)
@@ -120,6 +136,14 @@ class TreeQuerySet(object):
 
 @python_2_unicode_compatible
 class TreeNode(object):
+    """
+    Abstract tree node proxy for common tree attribute access.
+    The real tree node can be accessed via the `node` attribute.
+
+    NOTE: Only typical tree node methods like get abstracted,
+    if you need a specific value from a node, access it via `node`
+    (e.g. `obj.node.pk` for the pk value).
+    """
     def __init__(self, node, model=None, treetype=None):
         self.node = node
         self.model = model or self.node.__class__
@@ -171,6 +195,13 @@ class TreeNode(object):
 
 
 def force_treenode(it):
+    """
+    Helper function to enforce the content of a returned container type
+    being TreeNode objects. This especially useful if a manager or queryet
+    method returns a container with tree node objects.
+    :param it:
+    :return:
+    """
     def g(it):
         for node in it:
             yield TreeNode(node)
