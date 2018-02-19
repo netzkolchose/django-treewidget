@@ -4,7 +4,7 @@ from django.utils.html import escape
 from django.utils.encoding import force_text
 
 
-class Formatter(object):
+class SelectFormatter(object):
     ID_TEMPLATE = 'treewidget_%s_%s'
 
     def __init__(self, attr_name, selected, disabled, settings):

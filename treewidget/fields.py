@@ -6,9 +6,14 @@ from django.db import models
 from django.conf import settings
 from json import dumps
 from django.urls import reverse, NoReverseMatch
-from treewidget.helper import get_attribute
 from treewidget.tree import TreeQuerySet, get_treetype, MPTT
-from treewidget.formatters import Formatter
+from treewidget.formatters import SelectFormatter
+from operator import attrgetter
+
+
+def get_attr_iter(it, attr):
+    return map(attrgetter(attr), it)
+
 
 TREEOPTIONS = {
     'plugins': ['wholerow'],
@@ -50,14 +55,14 @@ class TreeModelWidgetMixin(object):
             selected = [selected]
         selected = list(map(str, selected))  # convert to str make easy comparison with str(e.pk)
 
-        # rebuild qs to ensure we can actually draw a correct tree structure
-        # this imports possibly imports nodes not contained in the original queryset,
+        # rebuild queryset to ensure we can actually draw a correct tree structure
+        # this possibly imports nodes not contained in the original queryset,
         # we mark those later as disabled (not selectable)
-        orig_pks = set(get_attribute(qs, 'pk'))
+        orig_pks = set(get_attr_iter(qs, 'pk'))
         ids = set()
         for el in qs:
             ids.add(el.pk)
-            ids.update(get_attribute(el.get_ancestors(), 'pk'))
+            ids.update(get_attr_iter(el.get_ancestors(), 'pk'))
 
         # get parents too, if only a sub is selected
         if selected:
@@ -69,7 +74,7 @@ class TreeModelWidgetMixin(object):
                 try:
                     el = model.objects.get(pk=el)
                     ids.add(el.pk)
-                    ids.update(get_attribute(el.get_ancestors(), 'pk'))
+                    ids.update(get_attr_iter(el.get_ancestors(), 'pk'))
                 except model.DoesNotExist:
                     pass
         # new queryset
@@ -80,11 +85,11 @@ class TreeModelWidgetMixin(object):
         # To write those back to database, the queryset of the POST form
         # field or the clean method needs to be adjusted as well.
 
-        # disabled nodes - difference of orig to new queryset
-        disabled = set(get_attribute(qs, 'pk')) - orig_pks
+        # disabled nodes - difference of new queryset to orig queryset
+        disabled = set(get_attr_iter(qs, 'pk')) - orig_pks
         return qs, selected, disabled
 
-    def _get_mixin_context(self, name, selected, qs, disabled, attrs=None):
+    def _get_mixin_context(self, name, qs, selected, disabled, attrs=None):
         # need something like a unique id, use name if none in attrs
         if not attrs or not attrs.get('id'):
             attrs = {'id': name}
@@ -107,7 +112,7 @@ class TreeModelWidgetMixin(object):
 
         # use TreeQuerySet as abstraction layer for unique access in formatter
         qs = TreeQuerySet(qs)
-        formatter = (self.settings.get('formatter') or Formatter)(
+        formatter = (self.settings.get('formatter') or SelectFormatter)(
             attr_name, selected, disabled, self.settings)
 
         # additional settings for JS
@@ -150,7 +155,7 @@ class TreeSelectMultiple(SelectMultiple, TreeModelWidgetMixin):
         drawable_qs, selected, disabled = self.get_drawable_queryset(value)
         ctx = super(TreeSelectMultiple, self).get_context(name, value, attrs)
         ctx['widget']['treewidget'] = self._get_mixin_context(
-            name, selected, drawable_qs, disabled, attrs)
+            name, drawable_qs, selected, disabled, attrs)
         ctx['widget']['treewidget']['super_template'] = super(TreeSelectMultiple, self).template_name
         return ctx
 
@@ -163,7 +168,7 @@ class TreeSelect(Select, TreeModelWidgetMixin):
         drawable_qs, selected, disabled = self.get_drawable_queryset(value)
         ctx = super(TreeSelect, self).get_context(name, value, attrs)
         ctx['widget']['treewidget'] = self._get_mixin_context(
-            name, selected, drawable_qs, disabled, attrs)
+            name, drawable_qs, selected, disabled, attrs)
         ctx['widget']['treewidget']['super_template'] = super(TreeSelect, self).template_name
         return ctx
 
