@@ -182,24 +182,24 @@ class TreeModelFieldMixin(object):
         super(TreeModelFieldMixin, self).__init__(queryset, *args, **kwargs)
 
 
-class TreeModelMultipleField(TreeModelFieldMixin, ModelMultipleChoiceField):
+class TreeModelMultipleChoiceField(TreeModelFieldMixin, ModelMultipleChoiceField):
     widget = TreeSelectMultiple
 
     def __init__(self, queryset, *args, **kwargs):
         self.settings = kwargs.pop('settings', {})
         self.treeoptions = kwargs.pop('treeoptions', '')
-        super(TreeModelMultipleField, self).__init__(queryset, *args, **kwargs)
+        super(TreeModelMultipleChoiceField, self).__init__(queryset, *args, **kwargs)
         self.widget.settings = self.settings
         self.widget.treeoptions = self.treeoptions
 
 
-class TreeModelField(TreeModelFieldMixin, ModelChoiceField):
+class TreeModelChoiceField(TreeModelFieldMixin, ModelChoiceField):
     widget = TreeSelect
 
     def __init__(self, queryset, *args, **kwargs):
         self.settings = kwargs.pop('settings', {})
         self.treeoptions = kwargs.pop('treeoptions', '')
-        super(TreeModelField, self).__init__(queryset, *args, **kwargs)
+        super(TreeModelChoiceField, self).__init__(queryset, *args, **kwargs)
         self.widget.settings = self.settings
         self.widget.treeoptions = self.treeoptions
 
@@ -212,7 +212,7 @@ class TreeForeignKey(models.ForeignKey):
         super(TreeForeignKey, self).__init__(*args, **kwargs)
 
     def formfield(self, **kwargs):
-        kwargs['form_class'] = TreeModelField
+        kwargs['form_class'] = TreeModelChoiceField
         kwargs['settings'] = self.settings
         kwargs['treeoptions'] = self.treeoptions
         return super(TreeForeignKey, self).formfield(**kwargs)
@@ -225,7 +225,7 @@ class TreeOneToOneField(models.OneToOneField):
         super(TreeOneToOneField, self).__init__(*args, **kwargs)
 
     def formfield(self, **kwargs):
-        kwargs['form_class'] = TreeModelField
+        kwargs['form_class'] = TreeModelChoiceField
         kwargs['settings'] = self.settings
         kwargs['treeoptions'] = self.treeoptions
         return super(TreeOneToOneField, self).formfield(**kwargs)
@@ -238,7 +238,7 @@ class TreeManyToManyField(models.ManyToManyField):
         super(TreeManyToManyField, self).__init__(*args, **kwargs)
 
     def formfield(self, **kwargs):
-        kwargs['form_class'] = TreeModelMultipleField
+        kwargs['form_class'] = TreeModelMultipleChoiceField
         kwargs['settings'] = self.settings
         kwargs['treeoptions'] = self.treeoptions
         return super(TreeManyToManyField, self).formfield(**kwargs)
