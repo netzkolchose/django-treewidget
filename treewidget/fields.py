@@ -129,9 +129,9 @@ class TreeSelectWidgetMixin(object):
 
         # load settings if not supplied
         if not self.settings and hasattr(settings, 'TREEWIDGET_SETTINGS'):
-            self.settings = settings.JSTREEWIDGET_SETTINGS
+            self.settings = settings.TREEWIDGET_SETTINGS
         if not self.treeoptions:
-            self.treeoptions = dumps(settings.JSTREEWIDGET_TREEOPTIONS
+            self.treeoptions = dumps(settings.TREEWIDGET_TREEOPTIONS
                 if hasattr(settings, 'TREEWIDGET_TREEOPTIONS') else TREEOPTIONS)
 
         # use TreeQuerySet as abstraction layer for unique access in formatter
