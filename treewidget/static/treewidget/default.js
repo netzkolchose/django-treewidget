@@ -192,6 +192,12 @@
                             sort: (additional.sort.length) ? 1 : 0
                         }, true),
                         function (resp) {
+
+                            // since tree could have changed in between get nodes again
+                            var tree_items = $el.jstree(true).get_json('#', { flat: true }).map(
+                                function(el) { return el.id; }
+                            );
+
                             for (var i=0; i < resp.length; ++i) {
                                 var data = resp[i];
 
@@ -325,6 +331,12 @@
                     additional.updateurl,
                     $.param(data, true),
                     function (resp) {
+
+                        // since tree could have changed in between get nodes again
+                        var tree_items = $el.jstree(true).get_json('#', { flat: true }).map(
+                            function(el) { return el.id; }
+                        );
+
                         for (var i=0; i < resp.length; ++i) {
                             var data = resp[i];
 
@@ -343,6 +355,10 @@
                                     );
                                 }
                             }
+
+                            // check if item is already in tree
+                            if (tree_items.indexOf(pk(data.id)) !== -1)
+                                continue;
 
                             // insert node into tree
                             $el.jstree().create_node(
