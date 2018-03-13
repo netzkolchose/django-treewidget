@@ -36,6 +36,7 @@ class TreeSelectWidgetMixin(object):
     treeoptions = ''
     multiple = False
     choices = None
+    queryset = None
 
     class Media:
         js = (
@@ -59,15 +60,15 @@ class TreeSelectWidgetMixin(object):
         :param selected:
         :return: (new queryset, selected values, disabled values)
         """
-        qs = self.choices.queryset
-        model = qs.model
-
+        qs = self.queryset or self.choices.queryset
         if not selected:
             selected = []
         elif not hasattr(selected, '__iter__'):
             selected = [selected]
         selected = list(map(str, selected))  # convert to str make easy comparison with str(e.pk)
 
+        """
+        model = qs.model
         # rebuild queryset to ensure we can actually draw a correct tree structure
         # this possibly imports nodes not contained in the original queryset,
         # we mark those later as disabled (not selectable)
@@ -100,7 +101,8 @@ class TreeSelectWidgetMixin(object):
 
         # disabled nodes - difference of new queryset to orig queryset
         disabled = set(get_attr_iter(qs, 'pk')) - orig_pks
-        return qs, selected, disabled
+        """
+        return qs, selected, set()
 
     def _get_mixin_context(self, name, qs, selected, disabled, attrs=None):
         """
@@ -174,6 +176,10 @@ class TreeSelectMultiple(SelectMultiple, TreeSelectWidgetMixin):
     template_name = 'treewidget/treewidget.html'
     multiple = True
 
+    def __init__(self, queryset=None, *args, **kwargs):
+        self.queryset = queryset
+        super(TreeSelect, self).__init__(*args, **kwargs)
+
     def get_context(self, name, value, attrs):
         drawable_qs, selected, disabled = self.get_drawable_queryset(value)
         ctx = super(TreeSelectMultiple, self).get_context(name, value, attrs)
@@ -186,6 +192,10 @@ class TreeSelectMultiple(SelectMultiple, TreeSelectWidgetMixin):
 class TreeSelect(Select, TreeSelectWidgetMixin):
     template_name = 'treewidget/treewidget.html'
     multiple = False
+
+    def __init__(self, queryset=None, *args, **kwargs):
+        self.queryset = queryset
+        super(TreeSelect, self).__init__(*args, **kwargs)
 
     def get_context(self, name, value, attrs):
         drawable_qs, selected, disabled = self.get_drawable_queryset(value)
