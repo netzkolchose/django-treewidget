@@ -67,42 +67,44 @@ class TreeSelectWidgetMixin(object):
             selected = [selected]
         selected = list(map(str, selected))  # convert to str make easy comparison with str(e.pk)
 
-        """
-        model = qs.model
-        # rebuild queryset to ensure we can actually draw a correct tree structure
-        # this possibly imports nodes not contained in the original queryset,
-        # we mark those later as disabled (not selectable)
-        orig_pks = set(get_attr_iter(qs, 'pk'))
-        ids = set()
-        for el in qs:
-            ids.add(el.pk)
-            ids.update(get_attr_iter(el.get_ancestors(), 'pk'))
+        disabled = set()
+        if getattr(settings, 'TREEWIDGET_REBUILD_TREE', False):
 
-        # get parents too, if only a sub is selected
-        if selected:
-            if not qs.exists():
-                _ids = zip(*qs.values_list('pk'))
-                if _ids:
-                    ids.update(_ids[0])
-            for el in selected:
-                try:
-                    el = model.objects.get(pk=el)
-                    ids.add(el.pk)
-                    ids.update(get_attr_iter(el.get_ancestors(), 'pk'))
-                except model.DoesNotExist:
-                    pass
-        # new queryset
-        qs = model.objects.filter(pk__in=ids)
+            # rebuild queryset to ensure we can actually draw a correct tree structure
+            # this possibly imports nodes not contained in the original queryset,
+            # we mark those later as disabled (not selectable)
+            model = qs.model
+            orig_pks = set(get_attr_iter(qs, 'pk'))
+            ids = set()
+            for el in qs:
+                ids.add(el.pk)
+                ids.update(get_attr_iter(el.get_ancestors(), 'pk'))
 
-        # The added nodes can be enabled by setting choices.queryset
-        # to the new queryset, so the select field will see these options too.
-        # To write those back to database, the queryset of the POST form
-        # field or the clean method needs to be adjusted as well.
+            # get parents too, if only a sub is selected
+            if selected:
+                if not qs.exists():
+                    _ids = zip(*qs.values_list('pk'))
+                    if _ids:
+                        ids.update(_ids[0])
+                for el in selected:
+                    try:
+                        el = model.objects.get(pk=el)
+                        ids.add(el.pk)
+                        ids.update(get_attr_iter(el.get_ancestors(), 'pk'))
+                    except model.DoesNotExist:
+                        pass
+            # new queryset
+            qs = model.objects.filter(pk__in=ids)
 
-        # disabled nodes - difference of new queryset to orig queryset
-        disabled = set(get_attr_iter(qs, 'pk')) - orig_pks
-        """
-        return qs, selected, set()
+            # The added nodes can be enabled by setting choices.queryset
+            # to the new queryset, so the select field will see these options too.
+            # To write those back to database, the queryset of the POST form
+            # field or the clean method needs to be adjusted as well.
+
+            # disabled nodes - difference of new queryset to orig queryset
+            disabled = set(get_attr_iter(qs, 'pk')) - orig_pks
+
+        return qs, selected, disabled
 
     def _get_mixin_context(self, name, qs, selected, disabled, attrs=None):
         """
