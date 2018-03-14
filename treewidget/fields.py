@@ -180,7 +180,7 @@ class TreeSelectMultiple(SelectMultiple, TreeSelectWidgetMixin):
 
     def __init__(self, queryset=None, *args, **kwargs):
         self.queryset = queryset
-        super(TreeSelect, self).__init__(*args, **kwargs)
+        super(TreeSelectMultiple, self).__init__(*args, **kwargs)
 
     def get_context(self, name, value, attrs):
         drawable_qs, selected, disabled = self.get_drawable_queryset(value)
