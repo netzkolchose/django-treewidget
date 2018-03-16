@@ -71,27 +71,13 @@ class TreeSelectWidgetMixin(object):
         # rebuild queryset to ensure we can actually draw a correct tree structure
         # this possibly imports nodes not contained in the original queryset,
         # we mark those later as disabled (not selectable)
-        orig_pks = set(get_attr_iter(qs, 'pk'))
-        ids = set()
-        for el in qs:
-            ids.add(el.pk)
-            ids.update(get_attr_iter(el.get_ancestors(), 'pk'))
 
-        # get parents too, if only a sub is selected
-        if selected:
-            if not qs.exists():
-                _ids = zip(*qs.values_list('pk'))
-                if _ids:
-                    ids.update(_ids[0])
-            for el in selected:
-                try:
-                    el = model.objects.get(pk=el)
-                    ids.add(el.pk)
-                    ids.update(get_attr_iter(el.get_ancestors(), 'pk'))
-                except model.DoesNotExist:
-                    pass
-        # new queryset
-        qs = model.objects.filter(pk__in=ids)
+        qs |= model.objects.filter(pk__in=selected)
+        orig_pks = set(get_attr_iter(qs, 'pk'))
+        #orig_pks = set(qs.values_list('pk', flat=True))
+
+        # new queryset containing all parents as well
+        qs_new = TreeQuerySet(qs).get_ancestors()
 
         # The added nodes can be enabled by setting choices.queryset
         # to the new queryset, so the select field will see these options too.
@@ -99,8 +85,8 @@ class TreeSelectWidgetMixin(object):
         # field or the clean method needs to be adjusted as well.
 
         # disabled nodes - difference of new queryset to orig queryset
-        disabled = set(get_attr_iter(qs, 'pk')) - orig_pks
-        return qs, selected, disabled
+        disabled = set(get_attr_iter(qs_new, 'pk')) - orig_pks
+        return qs_new, selected, disabled
 
     def _get_mixin_context(self, name, qs, selected, disabled, attrs=None):
         """
@@ -157,7 +143,7 @@ class TreeSelectWidgetMixin(object):
         json_data = '{"settings": %s, "additional": %s, "treedata": %s}' % (
             self.treeoptions,
             dumps(additional),
-            dumps([formatter.render(el) for el in qs])
+            dumps(list(formatter.render(qs)))
         )
 
         # treewidget context
