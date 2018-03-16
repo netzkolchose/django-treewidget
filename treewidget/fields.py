@@ -60,7 +60,7 @@ class TreeSelectWidgetMixin(object):
         :param selected:
         :return: (new queryset, selected values, disabled values)
         """
-        qs = self.queryset or self.choices.queryset
+        qs = self.queryset.all() if self.queryset else self.choices.queryset
         if not selected:
             selected = []
         elif not hasattr(selected, '__iter__'):
