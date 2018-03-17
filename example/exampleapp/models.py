@@ -49,9 +49,12 @@ class Treebeardns(NS_Node):
 
 class Example(models.Model):
     mptt = TreeForeignKey(Mptt, on_delete=models.CASCADE)
-    treebeardmp = TreeForeignKey(Treebeardmp, on_delete=models.CASCADE, settings={'show_buttons': True})
-    treebeardal = TreeForeignKey(Treebeardal, on_delete=models.CASCADE, settings={'search': True, 'dnd': True, 'sort': True})
-    treebeardns = TreeForeignKey(Treebeardns, on_delete=models.CASCADE, settings={'dnd': True})
+    treebeardmp = TreeForeignKey(Treebeardmp, on_delete=models.CASCADE,
+                                 settings={'show_buttons': True, 'filtered': True})
+    treebeardal = TreeForeignKey(Treebeardal, on_delete=models.CASCADE,
+                                 settings={'search': True, 'dnd': True, 'sort': True})
+    treebeardns = TreeForeignKey(Treebeardns, on_delete=models.CASCADE,
+                                 settings={'dnd': True})
     mptt_many = TreeManyToManyField(Mptt, related_name='example_many',
                                     settings={'show_buttons': True, 'search': True, 'dnd': True})
     treebeardmp_many = TreeManyToManyField(Treebeardmp, related_name='example_many')

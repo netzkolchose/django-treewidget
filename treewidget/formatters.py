@@ -34,8 +34,13 @@ class SelectFormatter(object):
         for node in queryset:
             id = self.ID_TEMPLATE % (self.attr_name, node.pk)
             parent = '#'
+            #try:
             if node.node._parent_pk:
                 parent = self.ID_TEMPLATE % (self.attr_name, node.node._parent_pk)
+            #except AttributeError:
+            #    parent_obj = node.parent
+            #    if parent_obj:
+            #        parent = self.ID_TEMPLATE % (self.attr_name, parent_obj.node.pk)
             yield {
                 'id': id,
                 'parent': parent,

@@ -84,8 +84,10 @@ class TreeQuerySet(object):
     The real queryset can be accessed via the `qs` attribute.
     """
     def __init__(self, qs, treetype=None):
-        self.qs = qs.qs if isinstance(qs, TreeQuerySet) else qs
-        self.qs_it = iter(self.qs)
+        if isinstance(qs, TreeQuerySet):
+            self.qs = qs.qs
+        else:
+            self.qs = qs
         self.treetype = treetype or get_treetype(self.qs.model)
 
     def __getitem__(self, item):
@@ -94,15 +96,16 @@ class TreeQuerySet(object):
             return TreeNode(item, self.qs.model, self.treetype)
         return item
 
+    def _get_next(self):
+        for node in self.qs:
+            yield TreeNode(node, self.qs.model, self.treetype)
+
     def __iter__(self):
-        return self
+        for node in self.qs:
+            yield TreeNode(node, self.qs.model, self.treetype)
 
     def __next__(self):
-        try:
-            return TreeNode(next(self.qs_it), self.qs.model, self.treetype)
-        except StopIteration:
-            self.qs_it = iter(self.qs)
-            raise StopIteration
+        return next(self)
 
     def next(self):
         return self.__next__()
@@ -139,6 +142,29 @@ class TreeQuerySet(object):
         return '%s.%s' % (self.qs.model._meta.app_label,
                           self.qs.model._meta.model_name)
 
+    def annotate_parent(self):
+        if self.treetype == MPTT:
+            parent_field = self.qs.model._mptt_meta.parent_attr
+            return TreeQuerySet(self.qs.annotate(_parent_pk=F(parent_field+'__pk')))
+        elif self.treetype == TREEBEARD:
+            if issubclass(self.qs.model, NS_Node):
+                sub = self.qs.model.objects.filter(
+                    tree_id=OuterRef('tree_id'),
+                    lft__lt=OuterRef('lft'),
+                    rgt__gt=OuterRef('rgt')).reverse()[:1]
+                qs = self.qs.annotate(_parent_pk=Subquery(sub.values('pk')))
+                return TreeQuerySet(qs)
+            elif issubclass(self.qs.model, MP_Node):
+                sub = self.qs.model.objects.filter(path=OuterRef('parentpath'))
+                expr = Substr('path', 1, Length('path') - self.qs.model.steplen,
+                              output_field=CharField())
+                qs = self.qs.annotate(parentpath=expr).annotate(_parent_pk=Subquery(sub.values('pk')))
+                return TreeQuerySet(qs)
+            elif issubclass(self.qs.model, AL_Node):
+                return TreeQuerySet(
+                        self.qs.annotate(_parent_pk=F('parent__pk')))
+        raise UnknownTreeImplementation('dont know how to annotate _parent_pk')
+
     def get_ancestors_parent_annotated(self, include_self=False):
         """
         Creates a queryset containing all parents of the queryset.
@@ -146,9 +172,10 @@ class TreeQuerySet(object):
         """
         # django mptt got a ready to go method
         if self.treetype == MPTT:
+            parent_field = self.qs.model._mptt_meta.parent_attr
             return TreeQuerySet(
                 self.qs.get_ancestors(include_self=include_self)
-                    .annotate(_parent_pk=F('parent__pk')))
+                    .annotate(_parent_pk=F(parent_field+'__pk')))
 
         # for treebeard we have to get the parents ourself
         elif self.treetype == TREEBEARD:
