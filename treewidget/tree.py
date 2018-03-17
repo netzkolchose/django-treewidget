@@ -2,9 +2,15 @@
 from __future__ import unicode_literals
 from django.db.models import QuerySet
 from django.utils.encoding import python_2_unicode_compatible
+from django.db.models import Q, F
+from django.db.models.functions import Substr, Length
+from django.db.models import CharField, OuterRef, Subquery
 
 try:
     from treebeard.models import Node as TreebeardNode
+    from treebeard.al_tree import AL_Node
+    from treebeard.ns_tree import NS_Node
+    from treebeard.mp_tree import MP_Node
     HAS_TREEBEARD = True
 except ImportError:
     HAS_TREEBEARD = False
@@ -29,6 +35,7 @@ TREEBEARD = {
         'descendants':  lambda node: force_treenode(node.get_descendants()),
         'level'     :   lambda node: node.get_depth(),
         'move'      :   lambda node: lambda target, pos: node.move(target, pos),
+        'is_root'   :   lambda node: node.is_root(),
     },
 }
 
@@ -46,6 +53,7 @@ MPTT = {
         'descendants':  lambda node: node.get_descendants(),
         'level'     :   lambda node: getattr(node, node.__class__._mptt_meta.level_attr, 0),
         'move'      :   lambda node: lambda target, pos: node.move_to(target, pos),
+        'is_root'   :   lambda node: node.is_root_node(),
     },
 }
 
@@ -57,16 +65,12 @@ class UnknownTreeImplementation(Exception):
 def get_treetype(model):
     """
     Return the function mapping of the real model tree implementation.
-
-    :raises UnknownTreeImplementation
-    :param model:
-    :return:
     """
     if HAS_TREEBEARD and issubclass(model, TreebeardNode):
         return TREEBEARD
     elif HAS_MPTT and issubclass(model, MPTTModel):
         return MPTT
-    raise UnknownTreeImplementation
+    raise UnknownTreeImplementation('cannot map tree implementation')
 
 
 class TreeQuerySet(object):
@@ -80,8 +84,10 @@ class TreeQuerySet(object):
     The real queryset can be accessed via the `qs` attribute.
     """
     def __init__(self, qs, treetype=None):
-        self.qs = qs
-        self.qs_it = iter(self.qs)
+        if isinstance(qs, TreeQuerySet):
+            self.qs = qs.qs
+        else:
+            self.qs = qs
         self.treetype = treetype or get_treetype(self.qs.model)
 
     def __getitem__(self, item):
@@ -90,16 +96,16 @@ class TreeQuerySet(object):
             return TreeNode(item, self.qs.model, self.treetype)
         return item
 
+    def _get_next(self):
+        for node in self.qs:
+            yield TreeNode(node, self.qs.model, self.treetype)
+
     def __iter__(self):
-        return self
+        for node in self.qs:
+            yield TreeNode(node, self.qs.model, self.treetype)
 
     def __next__(self):
-        try:
-            node = next(self.qs_it)
-            return TreeNode(node, self.qs.model, self.treetype)
-        except StopIteration:
-            self.qs_it = iter(self.qs)
-            raise StopIteration
+        return next(self)
 
     def next(self):
         return self.__next__()
@@ -133,7 +139,111 @@ class TreeQuerySet(object):
 
     @property
     def appmodel(self):
-        return '%s.%s' % (self.qs.model._meta.app_label, self.qs.model._meta.model_name)
+        return '%s.%s' % (self.qs.model._meta.app_label,
+                          self.qs.model._meta.model_name)
+
+    def annotate_parent(self):
+        if self.treetype == MPTT:
+            parent_field = self.qs.model._mptt_meta.parent_attr
+            return TreeQuerySet(self.qs.annotate(_parent_pk=F(parent_field+'__pk')))
+        elif self.treetype == TREEBEARD:
+            if issubclass(self.qs.model, NS_Node):
+                sub = self.qs.model.objects.filter(
+                    tree_id=OuterRef('tree_id'),
+                    lft__lt=OuterRef('lft'),
+                    rgt__gt=OuterRef('rgt')).reverse()[:1]
+                qs = self.qs.annotate(_parent_pk=Subquery(sub.values('pk')))
+                return TreeQuerySet(qs)
+            elif issubclass(self.qs.model, MP_Node):
+                sub = self.qs.model.objects.filter(path=OuterRef('parentpath'))
+                expr = Substr('path', 1, Length('path') - self.qs.model.steplen,
+                              output_field=CharField())
+                qs = self.qs.annotate(parentpath=expr).annotate(_parent_pk=Subquery(sub.values('pk')))
+                return TreeQuerySet(qs)
+            elif issubclass(self.qs.model, AL_Node):
+                return TreeQuerySet(
+                        self.qs.annotate(_parent_pk=F('parent__pk')))
+        raise UnknownTreeImplementation('dont know how to annotate _parent_pk')
+
+    def get_ancestors_parent_annotated(self, include_self=False):
+        """
+        Creates a queryset containing all parents of the queryset.
+        Also annotates the parent pk as `_parent_pk`.
+        """
+        # django mptt got a ready to go method
+        if self.treetype == MPTT:
+            parent_field = self.qs.model._mptt_meta.parent_attr
+            return TreeQuerySet(
+                self.qs.get_ancestors(include_self=include_self)
+                    .annotate(_parent_pk=F(parent_field+'__pk')))
+
+        # for treebeard we have to get the parents ourself
+        elif self.treetype == TREEBEARD:
+            if issubclass(self.qs.model, NS_Node):
+                filters = Q()
+                for node in self.qs:
+                    if include_self:
+                        filters |= Q(
+                            tree_id=node.tree_id,
+                            lft__lte=node.lft,
+                            rgt__gte=node.rgt)
+                    else:
+                        filters |= Q(
+                            tree_id=node.tree_id,
+                            lft__lt=node.lft,
+                            rgt__gt=node.rgt)
+                sub = self.qs.model.objects.filter(
+                    tree_id=OuterRef('tree_id'),
+                    lft__lt=OuterRef('lft'),
+                    rgt__gt=OuterRef('rgt')).reverse()[:1]
+                qs = self.qs.model.objects.filter(filters)\
+                    .annotate(_parent_pk=Subquery(sub.values('pk')))
+                return TreeQuerySet(qs)
+
+            elif issubclass(self.qs.model, MP_Node):
+                paths = set()
+                for node in self.qs:
+                    length = len(node.path)
+                    if include_self:
+                        length += node.steplen
+                    paths.update(node.path[0:pos]
+                                 for pos in range(node.steplen, length, node.steplen))
+                sub = self.qs.model.objects.filter(path=OuterRef('parentpath'))
+                expr = Substr('path', 1, Length('path') - self.qs.model.steplen,
+                              output_field=CharField())
+                qs = self.qs.model.objects.filter(path__in=paths)\
+                    .annotate(parentpath=expr)\
+                    .annotate(_parent_pk=Subquery(sub.values('pk')))
+                return TreeQuerySet(qs)
+
+            elif issubclass(self.qs.model, AL_Node):
+                # worst for parent querying
+                # we have to walk all levels up to root
+                # adds roughly a one query per level
+                nodes = self.qs.select_related('parent')
+                pks = set()
+                parents = set()
+                for node in nodes:
+                    if include_self:
+                        pks.add(node.pk)
+                    if node.parent:
+                        parents.add(node.parent.pk)
+                missing = parents - pks
+
+                while missing:
+                    pks.update(parents)
+                    parents.clear()
+                    for node in self.qs.model.objects.filter(
+                            pk__in=missing).select_related('parent'):
+                        if node.parent:
+                            parents.add(node.parent.pk)
+                    missing = parents - pks
+
+                return TreeQuerySet(
+                    self.qs.model.objects.filter(pk__in=pks)
+                        .annotate(_parent_pk=F('parent__pk')))
+
+        raise UnknownTreeImplementation('dont know how to annotate _parent_pk')
 
 
 @python_2_unicode_compatible
@@ -142,9 +252,9 @@ class TreeNode(object):
     Abstract tree node proxy for common tree attribute access.
     The real tree node can be accessed via the `node` attribute.
 
-    NOTE: Only typical tree node methods like get abstracted,
+    NOTE: Only typical tree node attributes get abstracted,
     if you need a specific value from a node, access it via `node`
-    (e.g. `obj.node.pk` for the pk value).
+    (e.g. `obj.node.some_field`).
     """
     def __init__(self, node, model=None, treetype=None):
         self.node = node
@@ -195,18 +305,22 @@ class TreeNode(object):
     def move(self):
         return self._get_real('move')
 
+    @property
+    def pk(self):
+        return self.node.pk
+
+    @property
+    def is_root(self):
+        return self._get_real('is_root')
+
 
 def force_treenode(it):
     """
-    Helper function to enforce the content of a returned container type
-    being TreeNode objects. This especially useful if a manager or queryet
-    method returns a container with tree node objects.
-    :param it:
-    :return:
+    Helper function to enforce the content of a returned container
+    being TreeNode objects. This especially useful if a manager
+    or a queryet method returns a container with tree node objects
+    instead of a queryset.
     """
-    def g(it):
-        for node in it:
-            yield TreeNode(node)
-    if isinstance(it, TreeQuerySet):
+    if isinstance(it, QuerySet):
         return it
-    return g(it)
+    return (TreeNode(node) for node in it)

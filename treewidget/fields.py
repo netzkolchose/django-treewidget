@@ -9,11 +9,7 @@ from json import dumps
 from django.urls import reverse, NoReverseMatch
 from treewidget.tree import TreeQuerySet, get_treetype, MPTT
 from treewidget.formatters import SelectFormatter
-from operator import attrgetter
-
-
-def get_attr_iter(it, attr):
-    return map(attrgetter(attr), it)
+from django.utils.encoding import force_text
 
 
 TREEOPTIONS = {
@@ -48,71 +44,48 @@ class TreeSelectWidgetMixin(object):
             'treewidget/default.css'
         )}
 
-    # TODO: move heavy db related stuff elsewhere to get more reusable widget code
-    def get_drawable_queryset(self, selected):
+    def prepare_queryset(self, selected):
         """
-        Helper method to ensure the data is drawable as a tree. To achieve this,
-        the method checks the ancestors of every entry in the original queryset
-        and the selected values. A missing value will be added and marked as
-        not selectable in the final tree.
-        NOTE: This method might add data not contained in the original queryset.
-        :param selected:
-        :return: (new queryset, selected values, disabled values)
-        """
-        qs = self.choices.queryset
-        model = qs.model
+        Prepares the underlying queryset so it can be used for the jstree
+        data generation in the formatter.
 
+        Steps taken:
+            - convert selected to a list of pks (as strings)
+            - annotate _parent_pk to objects to avoid db query for parent lookup
+            - replace `choices` with drilled down list to avoid another db query
+            - if `filtered` in settings is `True` replace queryset with
+              queryset containing all ancestors to ensure the data form
+              a correct subtree structure (disables added nodes in treewidget)
+        """
+        # set selected to a list of str(pk)
         if not selected:
             selected = []
         elif not hasattr(selected, '__iter__'):
             selected = [selected]
-        selected = list(map(str, selected))  # convert to str make easy comparison with str(e.pk)
+        selected = [str(pk) for pk in selected]
 
-        # rebuild queryset to ensure we can actually draw a correct tree structure
-        # this possibly imports nodes not contained in the original queryset,
-        # we mark those later as disabled (not selectable)
-        orig_pks = set(get_attr_iter(qs, 'pk'))
-        ids = set()
-        for el in qs:
-            ids.add(el.pk)
-            ids.update(get_attr_iter(el.get_ancestors(), 'pk'))
+        # add _parent_pk attribute to queryset objects
+        qs = TreeQuerySet(self.choices.queryset).annotate_parent()
 
-        # get parents too, if only a sub is selected
-        if selected:
-            if not qs.exists():
-                _ids = zip(*qs.values_list('pk'))
-                if _ids:
-                    ids.update(_ids[0])
-            for el in selected:
-                try:
-                    el = model.objects.get(pk=el)
-                    ids.add(el.pk)
-                    ids.update(get_attr_iter(el.get_ancestors(), 'pk'))
-                except model.DoesNotExist:
-                    pass
-        # new queryset
-        qs = model.objects.filter(pk__in=ids)
+        # replace choices to avoid another db query
+        choices = []
+        for node in qs:
+            choices.append([node.pk, force_text(node)])
+        self.choices = choices
 
-        # The added nodes can be enabled by setting choices.queryset
-        # to the new queryset, so the select field will see these options too.
-        # To write those back to database, the queryset of the POST form
-        # field or the clean method needs to be adjusted as well.
+        if not self.settings.get('filtered'):
+            return qs, selected, []
 
-        # disabled nodes - difference of new queryset to orig queryset
-        disabled = set(get_attr_iter(qs, 'pk')) - orig_pks
-        return qs, selected, disabled
+        orig_pks = set(node.pk for node in qs)
+        qs_new = TreeQuerySet(qs).get_ancestors_parent_annotated(include_self=True)
+        disabled = set(node.pk for node in qs_new) - orig_pks
+        return qs_new, selected, disabled
 
     def _get_mixin_context(self, name, qs, selected, disabled, attrs=None):
         """
         Method to build the final tree widget context data.
-        The tree data is provided to jstree as json object in the DOM.
-        For a single node the datais rendered by `formatters.SelectFormatter`.
-        :param name:
-        :param qs:
-        :param selected:
-        :param disabled:
-        :param attrs:
-        :return:
+        The tree data is provided to `jstree` as json object in the DOM.
+        The data for `jstree` rendered by `formatters.SelectFormatter`.
         """
         # need something like a unique id, use name if none in attrs
         if not attrs or not attrs.get('id'):
@@ -134,8 +107,7 @@ class TreeSelectWidgetMixin(object):
             self.treeoptions = dumps(settings.TREEWIDGET_TREEOPTIONS
                 if hasattr(settings, 'TREEWIDGET_TREEOPTIONS') else TREEOPTIONS)
 
-        # use TreeQuerySet as abstraction layer for unique access in formatter
-        qs = TreeQuerySet(qs)
+        # jstree data formatter
         formatter = (self.settings.get('formatter') or SelectFormatter)(
             attr_name, selected, disabled, self.settings)
 
@@ -157,7 +129,7 @@ class TreeSelectWidgetMixin(object):
         json_data = '{"settings": %s, "additional": %s, "treedata": %s}' % (
             self.treeoptions,
             dumps(additional),
-            dumps([formatter.render(el) for el in qs])
+            dumps(list(formatter.render(qs)))
         )
 
         # treewidget context
@@ -175,7 +147,7 @@ class TreeSelectMultiple(SelectMultiple, TreeSelectWidgetMixin):
     multiple = True
 
     def get_context(self, name, value, attrs):
-        drawable_qs, selected, disabled = self.get_drawable_queryset(value)
+        drawable_qs, selected, disabled = self.prepare_queryset(value)
         ctx = super(TreeSelectMultiple, self).get_context(name, value, attrs)
         ctx['widget']['treewidget'] = self._get_mixin_context(
             name, drawable_qs, selected, disabled, attrs)
@@ -188,7 +160,7 @@ class TreeSelect(Select, TreeSelectWidgetMixin):
     multiple = False
 
     def get_context(self, name, value, attrs):
-        drawable_qs, selected, disabled = self.get_drawable_queryset(value)
+        drawable_qs, selected, disabled = self.prepare_queryset(value)
         ctx = super(TreeSelect, self).get_context(name, value, attrs)
         ctx['widget']['treewidget'] = self._get_mixin_context(
             name, drawable_qs, selected, disabled, attrs)

@@ -24,23 +24,32 @@ class SelectFormatter(object):
         self.disabled = disabled
         self.settings = settings or {}
 
-    def render(self, node):
+    def render(self, queryset):
         """
-        Render method of a single node.
-        NOTE: `node` is a `tree.TreeNode` object.
-        Override the render method if you need other data in jstree.
-        :param node:
-        :return:
+        Render method of tree data for `jstree`.
+        NOTE: `queryset` is a `tree.TreeQueryset` object.
+        To avoid expensive database lookups, the parent pk
+        is accessible as `node.node._parent_pk`.
         """
-        return {
-            'id': self.ID_TEMPLATE % (self.attr_name, node.node.pk),
-            'parent': self.ID_TEMPLATE % (self.attr_name, node.parent.node.pk) if node.parent else '#',
-            'text': escape(force_text(node)),
-            'data': {
-                'sort': node.ordering if self.settings.get('sort') else []
-            },
-            'state': {
-                'selected': True if str(node.node.pk) in self.selected else False,
-                'disabled': True if node.node.pk in self.disabled else False
+        for node in queryset:
+            id = self.ID_TEMPLATE % (self.attr_name, node.pk)
+            parent = '#'
+            #try:
+            if node.node._parent_pk:
+                parent = self.ID_TEMPLATE % (self.attr_name, node.node._parent_pk)
+            #except AttributeError:
+            #    parent_obj = node.parent
+            #    if parent_obj:
+            #        parent = self.ID_TEMPLATE % (self.attr_name, parent_obj.node.pk)
+            yield {
+                'id': id,
+                'parent': parent,
+                'text': escape(force_text(node)),
+                'data': {
+                    'sort': node.ordering if self.settings.get('sort') else []
+                },
+                'state': {
+                    'selected': True if str(node.pk) in self.selected else False,
+                    'disabled': True if node.pk in self.disabled else False
+                }
             }
-        }
