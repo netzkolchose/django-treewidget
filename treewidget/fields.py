@@ -56,8 +56,6 @@ class TreeSelectWidgetMixin(object):
         and the selected values. A missing value will be added and marked as
         not selectable in the final tree.
         NOTE: This method might add data not contained in the original queryset.
-        :param selected:
-        :return: (new queryset, selected values, disabled values)
         """
         qs = self.choices.queryset
         model = qs.model
@@ -66,23 +64,13 @@ class TreeSelectWidgetMixin(object):
             selected = []
         elif not hasattr(selected, '__iter__'):
             selected = [selected]
-        selected = list(map(str, selected))  # convert to str make easy comparison with str(e.pk)
-
-        # rebuild queryset to ensure we can actually draw a correct tree structure
-        # this possibly imports nodes not contained in the original queryset,
-        # we mark those later as disabled (not selectable)
+        selected = list(map(str, selected))
 
         qs |= model.objects.filter(pk__in=selected)
         orig_pks = set(get_attr_iter(qs, 'pk'))
-        #orig_pks = set(qs.values_list('pk', flat=True))
 
-        # new queryset containing all parents as well
-        qs_new = TreeQuerySet(qs).get_ancestors()
-
-        # The added nodes can be enabled by setting choices.queryset
-        # to the new queryset, so the select field will see these options too.
-        # To write those back to database, the queryset of the POST form
-        # field or the clean method needs to be adjusted as well.
+        # new queryset containing all parents and _parent_pk
+        qs_new = TreeQuerySet(qs).get_ancestors_parent_annotated(include_self=True)
 
         # disabled nodes - difference of new queryset to orig queryset
         disabled = set(get_attr_iter(qs_new, 'pk')) - orig_pks
@@ -91,14 +79,8 @@ class TreeSelectWidgetMixin(object):
     def _get_mixin_context(self, name, qs, selected, disabled, attrs=None):
         """
         Method to build the final tree widget context data.
-        The tree data is provided to jstree as json object in the DOM.
-        For a single node the datais rendered by `formatters.SelectFormatter`.
-        :param name:
-        :param qs:
-        :param selected:
-        :param disabled:
-        :param attrs:
-        :return:
+        The tree data is provided to `jstree` as json object in the DOM.
+        The data for `jstree` rendered by `formatters.SelectFormatter`.
         """
         # need something like a unique id, use name if none in attrs
         if not attrs or not attrs.get('id'):

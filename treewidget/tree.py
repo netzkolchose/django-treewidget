@@ -2,6 +2,9 @@
 from __future__ import unicode_literals
 from django.db.models import QuerySet
 from django.utils.encoding import python_2_unicode_compatible
+from django.db.models import Q, F
+from django.db.models.functions import Substr, Length
+from django.db.models import CharField, OuterRef, Subquery
 
 try:
     from treebeard.models import Node as TreebeardNode
@@ -67,7 +70,7 @@ def get_treetype(model):
         return TREEBEARD
     elif HAS_MPTT and issubclass(model, MPTTModel):
         return MPTT
-    raise UnknownTreeImplementation
+    raise UnknownTreeImplementation('cannot map tree implementation')
 
 
 class TreeQuerySet(object):
@@ -81,16 +84,8 @@ class TreeQuerySet(object):
     The real queryset can be accessed via the `qs` attribute.
     """
     def __init__(self, qs, treetype=None):
-        self.qs = qs
-        if isinstance(qs, TreeQuerySet):
-            self.qs = qs.qs
-            self.qs_it = qs.qs_it
-            self.cached = qs.cached
-            self.fill_cache = qs.fill_cache
-        else:
-            self.qs_it = iter(self.qs)
-            self.cached = []
-            self.fill_cache = True
+        self.qs = qs.qs if isinstance(qs, TreeQuerySet) else qs
+        self.qs_it = iter(self.qs)
         self.treetype = treetype or get_treetype(self.qs.model)
 
     def __getitem__(self, item):
@@ -104,14 +99,9 @@ class TreeQuerySet(object):
 
     def __next__(self):
         try:
-            node = next(self.qs_it)
-            if self.fill_cache:
-                node = TreeNode(node, self.qs.model, self.treetype)
-                self.cached.append(node)
-            return node
+            return TreeNode(next(self.qs_it), self.qs.model, self.treetype)
         except StopIteration:
-            self.qs_it = iter(self.cached)
-            self.fill_cache = False
+            self.qs_it = iter(self.qs)
             raise StopIteration
 
     def next(self):
@@ -146,88 +136,69 @@ class TreeQuerySet(object):
 
     @property
     def appmodel(self):
-        return '%s.%s' % (self.qs.model._meta.app_label, self.qs.model._meta.model_name)
+        return '%s.%s' % (self.qs.model._meta.app_label,
+                          self.qs.model._meta.model_name)
 
-    def get_ancestors(self):
+    def get_ancestors_parent_annotated(self, include_self=False):
+        """
+        Creates a queryset containing all parents of the queryset.
+        Also annotates the parent pk as `_parent_pk`.
+        """
         # django mptt got a ready to go method
-        # has best runtime due to prefetch the parent attribute
         if self.treetype == MPTT:
             return TreeQuerySet(
-                self.qs.get_ancestors(include_self=True).select_related('parent'))
+                self.qs.get_ancestors(include_self=include_self)
+                    .annotate(_parent_pk=F('parent__pk')))
 
         # for treebeard we have to get the parents ourself
-        # we also patch the result with a parent attribute
         elif self.treetype == TREEBEARD:
             if issubclass(self.qs.model, NS_Node):
-                from django.db.models import Q
-                pks = [node.pk for node in self.qs]
-                filters = Q(pk__in=set(pks))
+                filters = Q()
                 for node in self.qs:
-                    if node.is_root():
-                        continue
-                    filters |= Q(tree_id=node.tree_id,
-                                 lft__lt=node.lft,
-                                 rgt__gt=node.rgt)
-
-                # patch parent attribute
-                qs = self.qs.model.objects.filter(filters)
-                nodes = [TreeNode(node) for node in qs]
-                for n in nodes:
-                    if n.is_root:
-                        continue
-                    for node in qs:
-                        if (node.tree_id == n.node.tree_id
-                                and node.lft <= n.node.lft
-                                and node.rgt >= n.node.rgt and node != n.node):
-                            n._parent = TreeNode(node)
-                # fake queryset with all nodes and parents in cache
-                qs = TreeQuerySet(qs)
-                qs.cached = nodes
-                qs.qs_it = iter(qs.cached)
-                qs.fill_cache = False
-                return qs
+                    if include_self:
+                        filters |= Q(
+                            tree_id=node.tree_id,
+                            lft__lte=node.lft,
+                            rgt__gte=node.rgt)
+                    else:
+                        filters |= Q(
+                            tree_id=node.tree_id,
+                            lft__lt=node.lft,
+                            rgt__gt=node.rgt)
+                sub = self.qs.model.objects.filter(
+                    tree_id=OuterRef('tree_id'),
+                    lft__lt=OuterRef('lft'),
+                    rgt__gt=OuterRef('rgt')).reverse()[:1]
+                qs = self.qs.model.objects.filter(filters)\
+                    .annotate(_parent_pk=Subquery(sub.values('pk')))
+                return TreeQuerySet(qs)
 
             elif issubclass(self.qs.model, MP_Node):
-                from django.db.models import Q
-                pks = [node.pk for node in self.qs]
-                filters = Q(pk__in=set(pks))
+                paths = set()
                 for node in self.qs:
-                    if node.is_root():
-                        continue
-                    paths = [
-                        node.path[0:pos]
-                        for pos in range(0, len(node.path), node.steplen)[1:]
-                    ]
-                    filters |= Q(path__in=paths)
-
-                # patch parent attribute
-                qs = self.qs.model.objects.filter(filters)
-                nodes = [TreeNode(node) for node in qs]
-                for n in nodes:
-                    if n.is_root:
-                        continue
-                    depth = int(len(n.node.path) / n.node.steplen) - 1
-                    parentpath = n.node.path[0:depth * n.node.steplen]
-                    for node in qs:
-                        if node.path == parentpath:
-                            n._parent = TreeNode(node)
-                # fake queryset with all nodes and parents in cache
-                qs = TreeQuerySet(qs)
-                qs.cached = nodes
-                qs.qs_it = iter(qs.cached)
-                qs.fill_cache = False
-                return qs
+                    length = len(node.path)
+                    if include_self:
+                        length += node.steplen
+                    paths.update(node.path[0:pos]
+                                 for pos in range(node.steplen, length, node.steplen))
+                sub = self.qs.model.objects.filter(path=OuterRef('parentpath'))
+                expr = Substr('path', 1, Length('path') - self.qs.model.steplen,
+                              output_field=CharField())
+                qs = self.qs.model.objects.filter(path__in=paths)\
+                    .annotate(parentpath=expr)\
+                    .annotate(_parent_pk=Subquery(sub.values('pk')))
+                return TreeQuerySet(qs)
 
             elif issubclass(self.qs.model, AL_Node):
-                # almost like the generic fallback
-                # difference:
-                #   we have a parent attribute we can prefetch
-                #   to lower db interaction
+                # worst for parent querying
+                # we have to walk all levels up to root
+                # adds roughly a one query per level
                 nodes = self.qs.select_related('parent')
                 pks = set()
                 parents = set()
                 for node in nodes:
-                    pks.add(node.pk)
+                    if include_self:
+                        pks.add(node.pk)
                     if node.parent:
                         parents.add(node.parent.pk)
                 missing = parents - pks
@@ -242,28 +213,10 @@ class TreeQuerySet(object):
                     missing = parents - pks
 
                 return TreeQuerySet(
-                    self.qs.model.objects.filter(
-                        pk__in=pks).select_related('parent'))
+                    self.qs.model.objects.filter(pk__in=pks)
+                        .annotate(_parent_pk=F('parent__pk')))
 
-        # fallback to generic implementation with worst runtime
-        # walks tree levels until all parents are known
-        pks = set()
-        parents = set()
-        for node in self:
-            pks.add(node.node.pk)
-            if not node.is_root:
-                parents.add(node.parent.node.pk)
-        missing = parents - pks
-
-        while missing:
-            pks.update(parents)
-            parents.clear()
-            for node in TreeQuerySet(self.qs.model.objects.filter(pk__in=missing)):
-                if node.parent:
-                    parents.add(node.parent.node.pk)
-            missing = parents - pks
-
-        return TreeQuerySet(self.qs.model.objects.filter(pk__in=pks))
+        raise UnknownTreeImplementation('dont know how to annotate _parent_pk')
 
 
 @python_2_unicode_compatible
@@ -299,11 +252,7 @@ class TreeNode(object):
 
     @property
     def parent(self):
-        try:
-            # hack for treebeard to avoid additional db lookups
-            return self._parent
-        except AttributeError:
-            return self._get_real('parent')
+        return self._get_real('parent')
 
     @property
     def prev_sibling(self):
@@ -340,10 +289,11 @@ class TreeNode(object):
 
 def force_treenode(it):
     """
-    Helper function to enforce the content of a returned container type
-    being TreeNode objects. This especially useful if a manager or queryet
-    method returns a container with tree node objects.
+    Helper function to enforce the content of a returned container
+    being TreeNode objects. This especially useful if a manager
+    or a queryet method returns a container with tree node objects
+    instead of a queryset.
     """
-    if isinstance(it, TreeQuerySet):
+    if isinstance(it, QuerySet):
         return it
     return (TreeNode(node) for node in it)

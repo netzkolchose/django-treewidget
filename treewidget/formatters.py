@@ -26,22 +26,25 @@ class SelectFormatter(object):
 
     def render(self, queryset):
         """
-        Render method of tree data for jstree.
+        Render method of tree data for `jstree`.
         NOTE: `queryset` is a `tree.TreeQueryset` object.
-        To avoid expensive database lookups, the nodes and
-        their parents might be precached.
+        To avoid expensive database lookups, the parent pk
+        is accessible as `node.node._parent_pk`.
         """
         for node in queryset:
+            id = self.ID_TEMPLATE % (self.attr_name, node.pk)
+            parent = '#'
+            if node.node._parent_pk:
+                parent = self.ID_TEMPLATE % (self.attr_name, node.node._parent_pk)
             yield {
-                'id': self.ID_TEMPLATE % (self.attr_name, node.node.pk),
-                'parent': self.ID_TEMPLATE % (self.attr_name, node.parent.node.pk)
-                            if node.parent else '#',
+                'id': id,
+                'parent': parent,
                 'text': escape(force_text(node)),
                 'data': {
                     'sort': node.ordering if self.settings.get('sort') else []
                 },
                 'state': {
-                    'selected': True if str(node.node.pk) in self.selected else False,
-                    'disabled': True if node.node.pk in self.disabled else False
+                    'selected': True if str(node.pk) in self.selected else False,
+                    'disabled': True if node.pk in self.disabled else False
                 }
             }
