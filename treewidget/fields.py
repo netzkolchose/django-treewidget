@@ -69,8 +69,10 @@ class TreeSelectWidgetMixin(object):
 
         # replace choices to avoid another db query
         choices = []
+        if self.settings.get('empty_label'):
+            choices.append(('', self.settings['empty_label']))
         for node in qs:
-            choices.append([node.pk, force_text(node)])
+            choices.append((node.pk, force_text(node)))
         self.choices = choices
 
         if not self.settings.get('filtered'):
@@ -183,6 +185,7 @@ class TreeModelMultipleChoiceField(TreeModelFieldMixin, ModelMultipleChoiceField
         self.settings = kwargs.pop('settings', {})
         self.treeoptions = kwargs.pop('treeoptions', '')
         super(TreeModelMultipleChoiceField, self).__init__(queryset, *args, **kwargs)
+        self.settings['empty_label'] = self.empty_label
         self.widget.settings = self.settings
         self.widget.treeoptions = self.treeoptions
 
@@ -194,6 +197,7 @@ class TreeModelChoiceField(TreeModelFieldMixin, ModelChoiceField):
         self.settings = kwargs.pop('settings', {})
         self.treeoptions = kwargs.pop('treeoptions', '')
         super(TreeModelChoiceField, self).__init__(queryset, *args, **kwargs)
+        self.settings['empty_label'] = self.empty_label
         self.widget.settings = self.settings
         self.widget.treeoptions = self.treeoptions
 
