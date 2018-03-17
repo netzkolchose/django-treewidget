@@ -31,11 +31,14 @@ Note that some widget settings will override treeoptions to keep working.
 Both settings can be provided project wide in settings.py as `TREEWIDGET_SETTINGS` and
 `TREEWIDGET_TREEOPTIONS`.
 
-**NOTE**: To be able to render a correct tree structure the widget code checks for
-missing ancestors and adds left out nodes. To keep in sync with the real queryset
-(used for the underlying select options) added nodes are not selectable.
-Don not use this app if you filter against row based read permissions
-since it might reveal confident data. This behavior might change with future versions.
+It is possible to render a deeper nested branch (subtree) by overriding the default
+formatter. Just set the parent id to '#' for the branch's top level entries in the
+formatter's `render` method.
+
+**NOTE**: If you use a prefiltered queryset which data does not form a subtree
+containing all parents up to the top level, jstree cannot render it correctly.
+With 'filtered' in settings set to `True` those querysets will be rendered by
+adding missing nodes as not selectable.
 
 ### Example ###
 ```python
