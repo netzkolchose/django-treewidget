@@ -24,6 +24,21 @@ TREEOPTIONS = {
 }
 
 
+def get_settings(kwargs):
+    """
+    Get settings from arbitrary dict or from Django settings
+    :param kwargs: Arbitrary keyword arguments given to the initializer
+    :return: Tree-related settings, Tree-related options
+    """
+    _settings = kwargs.pop('settings', {})
+    _treeoptions = kwargs.pop('treeoptions', '')
+    if not _settings:
+        _settings = getattr(settings, 'TREEWIDGET_SETTINGS', _settings)
+    if not _treeoptions:
+        _treeoptions = dumps(getattr(settings, 'TREEWIDGET_TREEOPTIONS', TREEOPTIONS))
+    return _settings, _treeoptions
+
+
 class TreeSelectWidgetMixin(object):
     """
     Mixin class for SelectWidgets to provide the tree functionality.
@@ -57,7 +72,7 @@ class TreeSelectWidgetMixin(object):
             - if `filtered` in settings is `True` replace queryset with
               queryset containing all ancestors to ensure the data form
               a correct subtree structure (disables added nodes in treewidget)
-        :param selected:
+        :param selected: selected values
         :return: (new queryset, selected values, disabled values)
         """
         # set selected to a list of str(pk)
@@ -68,7 +83,7 @@ class TreeSelectWidgetMixin(object):
         selected = list(map(str, selected))  # convert to str make easy comparison with str(e.pk)
 
         # add _parent_pk attribute to queryset objects
-        qs = self.queryset.all() if self.queryset else self.choices.queryset
+        qs = self.queryset.all() if getattr(self, 'queryset', None) else self.choices.queryset
         qs = TreeQuerySet(qs).annotate_parent()
 
         # replace choices to avoid another db query
@@ -105,13 +120,6 @@ class TreeSelectWidgetMixin(object):
         except NoReverseMatch:
             update_url = ''
             move_url = ''
-
-        # load settings if not supplied
-        if not self.settings and hasattr(settings, 'TREEWIDGET_SETTINGS'):
-            self.settings = settings.TREEWIDGET_SETTINGS
-        if not self.treeoptions:
-            self.treeoptions = dumps(settings.TREEWIDGET_TREEOPTIONS
-                if hasattr(settings, 'TREEWIDGET_TREEOPTIONS') else TREEOPTIONS)
 
         # jstree data formatter
         formatter = (self.settings.get('formatter') or SelectFormatter)(
@@ -154,13 +162,14 @@ class TreeSelectMultiple(SelectMultiple, TreeSelectWidgetMixin):
 
     def __init__(self, queryset=None, *args, **kwargs):
         self.queryset = queryset
+        self.settings, self.treeoptions = get_settings(kwargs)
         super(TreeSelectMultiple, self).__init__(*args, **kwargs)
 
     def get_context(self, name, value, attrs):
-        drawable_qs, selected, disabled = self.prepare_queryset(value)
+        qs, selected, disabled = self.prepare_queryset(value)
         ctx = super(TreeSelectMultiple, self).get_context(name, value, attrs)
         ctx['widget']['treewidget'] = self._get_mixin_context(
-            name, drawable_qs, selected, disabled, attrs)
+            name, qs, selected, disabled, attrs)
         ctx['widget']['treewidget']['super_template'] = super(TreeSelectMultiple, self).template_name
         return ctx
 
@@ -171,31 +180,32 @@ class TreeSelect(Select, TreeSelectWidgetMixin):
 
     def __init__(self, queryset=None, *args, **kwargs):
         self.queryset = queryset
+        self.settings, self.treeoptions = get_settings(kwargs)
         super(TreeSelect, self).__init__(*args, **kwargs)
 
     def get_context(self, name, value, attrs):
-        drawable_qs, selected, disabled = self.prepare_queryset(value)
+        qs, selected, disabled = self.prepare_queryset(value)
         ctx = super(TreeSelect, self).get_context(name, value, attrs)
         ctx['widget']['treewidget'] = self._get_mixin_context(
-            name, drawable_qs, selected, disabled, attrs)
+            name, qs, selected, disabled, attrs)
         ctx['widget']['treewidget']['super_template'] = super(TreeSelect, self).template_name
         return ctx
 
 
 class TreeModelFieldMixin(object):
+
     def __init__(self, queryset, *args, **kwargs):
         if hasattr(queryset, 'model') and get_treetype(queryset.model) == MPTT:
             mptt_opts = queryset.model._mptt_meta
             queryset = queryset.order_by(mptt_opts.tree_id_attr, mptt_opts.left_attr)
-        super(TreeModelFieldMixin, self).__init__(queryset, *args, **kwargs)
+        super(TreeModelFieldMixin, self).__init__(queryset=queryset, *args, **kwargs)
 
 
 class TreeModelMultipleChoiceField(TreeModelFieldMixin, ModelMultipleChoiceField):
     widget = TreeSelectMultiple
 
     def __init__(self, queryset, *args, **kwargs):
-        self.settings = kwargs.pop('settings', {})
-        self.treeoptions = kwargs.pop('treeoptions', '')
+        self.settings, self.treeoptions = get_settings(kwargs)
         super(TreeModelMultipleChoiceField, self).__init__(queryset, *args, **kwargs)
         self.settings['empty_label'] = self.empty_label
         self.widget.settings = self.settings
@@ -206,8 +216,7 @@ class TreeModelChoiceField(TreeModelFieldMixin, ModelChoiceField):
     widget = TreeSelect
 
     def __init__(self, queryset, *args, **kwargs):
-        self.settings = kwargs.pop('settings', {})
-        self.treeoptions = kwargs.pop('treeoptions', '')
+        self.settings, self.treeoptions = get_settings(kwargs)
         super(TreeModelChoiceField, self).__init__(queryset, *args, **kwargs)
         self.settings['empty_label'] = self.empty_label
         self.widget.settings = self.settings
@@ -215,9 +224,9 @@ class TreeModelChoiceField(TreeModelFieldMixin, ModelChoiceField):
 
 
 class TreeForeignKey(models.ForeignKey):
+
     def __init__(self, *args, **kwargs):
-        self.settings = kwargs.pop('settings', {})
-        self.treeoptions = kwargs.pop('treeoptions', '')
+        self.settings, self.treeoptions = get_settings(kwargs)
         super(TreeForeignKey, self).__init__(*args, **kwargs)
 
     def formfield(self, **kwargs):
@@ -228,9 +237,9 @@ class TreeForeignKey(models.ForeignKey):
 
 
 class TreeOneToOneField(models.OneToOneField):
+
     def __init__(self, *args, **kwargs):
-        self.settings = kwargs.pop('settings', {})
-        self.treeoptions = kwargs.pop('treeoptions', '')
+        self.settings, self.treeoptions = get_settings(kwargs)
         super(TreeOneToOneField, self).__init__(*args, **kwargs)
 
     def formfield(self, **kwargs):
@@ -241,9 +250,9 @@ class TreeOneToOneField(models.OneToOneField):
 
 
 class TreeManyToManyField(models.ManyToManyField):
+
     def __init__(self, *args, **kwargs):
-        self.settings = kwargs.pop('settings', {})
-        self.treeoptions = kwargs.pop('treeoptions', '')
+        self.settings, self.treeoptions = get_settings(kwargs)
         super(TreeManyToManyField, self).__init__(*args, **kwargs)
 
     def formfield(self, **kwargs):
