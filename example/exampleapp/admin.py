@@ -19,7 +19,7 @@ class MpttAdmin(DraggableMPTTAdmin):
 
     def get_form(self, request, obj=None, **kwargs):
         form = super(MpttAdmin, self).get_form(request, obj=None, **kwargs)
-        form.base_fields['parent'].queryset = Mptt.objects.exclude(pk=1)
+        form.base_fields['parent'].queryset = Mptt.objects.exclude(pk=1)  # filtered qs
         return form
 
 
@@ -35,8 +35,15 @@ class TreebeardnsAdmin(TreeAdmin):
     form = movenodeform_factory(Treebeardns)
 
 
+class ExampleAdmin(admin.ModelAdmin):
+    def get_form(self, request, obj=None, **kwargs):
+        form = super(ExampleAdmin, self).get_form(request, obj=None, **kwargs)
+        form.base_fields['treebeardmp'].queryset = Treebeardmp.objects.exclude(pk=1)  # filtered qs
+        return form
+
+
 admin.site.register(Mptt, MpttAdmin)
 admin.site.register(Treebeardmp, TreebeardmpAdmin)
 admin.site.register(Treebeardal, TreebeardalAdmin)
 admin.site.register(Treebeardns, TreebeardnsAdmin)
-admin.site.register(Example, admin.ModelAdmin)
+admin.site.register(Example, ExampleAdmin)

@@ -1,4 +1,4 @@
-include LICENSE
+include LICENSE.txt
 include README.md
 recursive-include treewidget/static *
 recursive-include treewidget/templates *

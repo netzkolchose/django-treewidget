@@ -163,8 +163,8 @@
                 all_texts[this.value] = $(this).text();
             });
 
-            // listener for name or position changes
-            $('#'+attr_name).on('DOMSubtreeModified', function(ev) {
+            // updates for name or position changes
+            var name_handler = function(ev) {
                 if (ev.target !== $('#'+attr_name)[0]) {
                     // only operate on option elements
                     if (ev.target.nodeName.toLowerCase() !== 'option')
@@ -277,7 +277,12 @@
                         }
                     );
                 }
+            };
+            var observer = new MutationObserver(function(mutations) {
+                mutations.forEach(name_handler);
             });
+            var config = {childList: true, subtree: true};
+            observer.observe($('#'+attr_name).get(0), config);
 
             // update from popup add/delete
             $('#'+attr_name).on('change', function(ev) {

@@ -13,7 +13,8 @@ from django.utils.encoding import python_2_unicode_compatible
 @python_2_unicode_compatible
 class Mptt(MPTTModel):
     name = models.CharField(max_length=32)
-    parent = TreeForeignKey('self', blank=True, null=True, on_delete=models.CASCADE)
+    parent = TreeForeignKey(
+        'self', blank=True, null=True, on_delete=models.CASCADE, settings={'filtered': True})
 
     def __str__(self):
         return self.name
@@ -49,9 +50,12 @@ class Treebeardns(NS_Node):
 
 class Example(models.Model):
     mptt = TreeForeignKey(Mptt, on_delete=models.CASCADE)
-    treebeardmp = TreeForeignKey(Treebeardmp, on_delete=models.CASCADE, settings={'show_buttons': True})
-    treebeardal = TreeForeignKey(Treebeardal, on_delete=models.CASCADE, settings={'search': True, 'dnd': True, 'sort': True})
-    treebeardns = TreeForeignKey(Treebeardns, on_delete=models.CASCADE, settings={'dnd': True})
+    treebeardmp = TreeForeignKey(Treebeardmp, on_delete=models.CASCADE,
+                                 settings={'show_buttons': True, 'filtered': True})
+    treebeardal = TreeForeignKey(Treebeardal, on_delete=models.CASCADE,
+                                 settings={'search': True, 'dnd': True, 'sort': True})
+    treebeardns = TreeForeignKey(Treebeardns, on_delete=models.CASCADE,
+                                 settings={'dnd': True})
     mptt_many = TreeManyToManyField(Mptt, related_name='example_many',
                                     settings={'show_buttons': True, 'search': True, 'dnd': True})
     treebeardmp_many = TreeManyToManyField(Treebeardmp, related_name='example_many')
