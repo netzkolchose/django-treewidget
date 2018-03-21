@@ -21,39 +21,37 @@ try:
 except ImportError:
     HAS_MPTT = False
 
-
 TREEBEARD = {
     'root_level': 1,
     'model': {
-        'order'     :   lambda model: model.node_order_by or []
+        'order': lambda model: model.node_order_by or []
     },
     'node': {
-        'parent'    :   lambda node: node.get_parent(),
-        'prev'      :   lambda node: node.get_prev_sibling(),
-        'next'      :   lambda node: node.get_next_sibling(),
-        'ancestors' :   lambda node: force_treenode(node.get_ancestors()),
-        'descendants':  lambda node: force_treenode(node.get_descendants()),
-        'level'     :   lambda node: node.get_depth(),
-        'move'      :   lambda node: lambda target, pos: node.move(target, pos),
-        'is_root'   :   lambda node: node.is_root(),
+        'parent': lambda node: node.get_parent(),
+        'prev': lambda node: node.get_prev_sibling(),
+        'next': lambda node: node.get_next_sibling(),
+        'ancestors': lambda node: force_treenode(node.get_ancestors()),
+        'descendants': lambda node: force_treenode(node.get_descendants()),
+        'level': lambda node: node.get_depth(),
+        'move': lambda node: lambda target, pos: node.move(target, pos),
+        'is_root': lambda node: node.is_root(),
     },
 }
-
 
 MPTT = {
     'root_level': 0,
     'model': {
-        'order'     :   lambda model: model._mptt_meta.order_insertion_by or []
+        'order': lambda model: model._mptt_meta.order_insertion_by or []
     },
     'node': {
-        'parent'    :   lambda node: getattr(node, node.__class__._mptt_meta.parent_attr, None),
-        'prev'      :   lambda node: node.get_previous_sibling(),
-        'next'      :   lambda node: node.get_next_sibling(),
-        'ancestors' :   lambda node: node.get_ancestors(),
-        'descendants':  lambda node: node.get_descendants(),
-        'level'     :   lambda node: getattr(node, node.__class__._mptt_meta.level_attr, 0),
-        'move'      :   lambda node: lambda target, pos: node.move_to(target, pos),
-        'is_root'   :   lambda node: node.is_root_node(),
+        'parent': lambda node: getattr(node, node.__class__._mptt_meta.parent_attr, None),
+        'prev': lambda node: node.get_previous_sibling(),
+        'next': lambda node: node.get_next_sibling(),
+        'ancestors': lambda node: node.get_ancestors(),
+        'descendants': lambda node: node.get_descendants(),
+        'level': lambda node: getattr(node, node.__class__._mptt_meta.level_attr, 0),
+        'move': lambda node: lambda target, pos: node.move_to(target, pos),
+        'is_root': lambda node: node.is_root_node(),
     },
 }
 
