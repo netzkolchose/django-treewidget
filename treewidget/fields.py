@@ -51,7 +51,6 @@ class TreeSelectWidgetMixin(object):
 
     class Media:
         js = (
-            'treewidget/jquery.min.js',
             'treewidget/prepare.js',
             'treewidget/jstree.min.js',
             'treewidget/default.js',
