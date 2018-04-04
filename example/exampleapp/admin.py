@@ -36,6 +36,21 @@ class TreebeardnsAdmin(TreeAdmin):
 
 
 class ExampleAdmin(admin.ModelAdmin):
+    class Media:
+        extend = False
+        js = (
+            'https://code.jquery.com/jquery-3.3.1.min.js',
+        )
+    fieldsets = (
+        (None, {
+            'fields': ('mptt', 'treebeardmp', 'treebeardal', 'treebeardns')
+        }),
+        ('M2M', {
+            'classes': ('collapse',),
+            'fields': ('mptt_many', 'treebeardmp_many', 'treebeardal_many', 'treebeardns_many'),
+        }),
+    )
+
     def get_form(self, request, obj=None, **kwargs):
         form = super(ExampleAdmin, self).get_form(request, obj=None, **kwargs)
         form.base_fields['treebeardmp'].queryset = Treebeardmp.objects.exclude(pk=1)  # filtered qs
