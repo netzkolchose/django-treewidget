@@ -78,7 +78,7 @@ class TreeSelectWidgetMixin(object):
         # set selected to a list of str(pk)
         if not selected:
             selected = []
-        elif not hasattr(selected, '__iter__'):
+        elif isinstance(selected, str) or not hasattr(selected, '__iter__'):
             selected = [selected]
         selected = list(map(str, selected))  # convert to str make easy comparison with str(e.pk)
 
