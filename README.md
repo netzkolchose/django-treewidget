@@ -16,6 +16,23 @@ e.g. `url(r'^treewidget/', include('treewidget.urls'))`
 ### Usage ###
 
 Just replace any foreign key, m2m or one2one tree model field with the provided counterpart.
+jstree depends on jQuery to work. This module does not provide a jQuery version, use the
+admin version or place your own version along with your other assets.
+
+### Workarounds ###
+
+If used in admin along with collapsed fieldsets, django's jQuery gets loaded to late
+and jstree will fail to load. You can work around this issue by loading a separate jQuery
+with `extend = False` at your admin class, example:
+
+```python
+class ExampleAdmin(admin.ModelAdmin):
+    class Media:
+        extend = False
+        js = (
+            'https://code.jquery.com/jquery-3.3.1.min.js',
+        )
+```
 
 ### Customization ###
 
