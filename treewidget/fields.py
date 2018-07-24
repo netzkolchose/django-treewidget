@@ -86,7 +86,7 @@ class TreeSelectWidgetMixin(object):
         selected = list(map(str, selected))  # convert to str make easy comparison with str(e.pk)
 
         # add _parent_pk attribute to queryset objects
-        qs = self.queryset.all() if getattr(self, 'queryset', None) else self.choices.queryset
+        qs = self.queryset.all() if getattr(self, 'queryset', None) else getattr(self.choices, 'queryset', self.choices)
         qs = TreeQuerySet(qs).annotate_parent()
 
         # replace choices to avoid another db query
