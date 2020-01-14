@@ -9,6 +9,7 @@ from json import dumps
 from django.urls import reverse, NoReverseMatch
 from treewidget.tree import TreeQuerySet, get_treetype, MPTT
 from treewidget.formatters import SelectFormatter
+from django.utils.encoding import force_str
 
 
 TREEOPTIONS = {
@@ -92,7 +93,7 @@ class TreeSelectWidgetMixin(object):
         if self.settings.get('empty_label'):
             choices.append(('', self.settings['empty_label']))
         for node in qs:
-            choices.append((node.pk, str(node)))
+            choices.append((node.pk, force_str(node)))
         self.choices = choices
 
         if not self.settings.get('filtered'):
