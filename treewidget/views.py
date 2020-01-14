@@ -4,7 +4,6 @@ from django.http import JsonResponse
 from django.apps import apps
 from django.contrib.auth.decorators import login_required
 from django.utils.html import escape
-from django.utils.encoding import force_text
 from treewidget.tree import TreeQuerySet, TreeNode
 
 # TODO: check for individual permissions
@@ -36,14 +35,14 @@ def get_node(request):
 
             # get parent nodes
             parents = [{
-                'name': escape(force_text(p)),
+                'name': escape(str(p)),
                 'parent': p.parent.node.pk if p.parent else None,
                 'id': p.node.pk,
                 'sort': p.ordering if sort else None
             } for p in elem.ancestors]
 
             result.append({
-                'name': escape(force_text(elem)),
+                'name': escape(str(elem)),
                 'parent': elem.parent.node.pk if elem.parent else None,
                 'id': elem.node.pk,
                 'sort': elem.ordering if sort else None,
