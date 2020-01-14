@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 from django.utils.html import escape
-from django.utils.encoding import force_text
+from django.utils.encoding import force_str
 
 
 class SelectFormatter(object):
@@ -44,7 +44,7 @@ class SelectFormatter(object):
             yield {
                 'id': id,
                 'parent': parent,
-                'text': escape(force_text(node)),
+                'text': escape(force_str(node)),
                 'data': {
                     'sort': node.ordering if self.settings.get('sort') else []
                 },
