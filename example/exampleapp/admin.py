@@ -1,6 +1,3 @@
-# -*- coding: utf-8 -*-
-from __future__ import unicode_literals
-
 from django.contrib import admin
 from .models import Mptt, Treebeardmp, Treebeardal, Treebeardns, Example
 from mptt.admin import DraggableMPTTAdmin
@@ -36,11 +33,6 @@ class TreebeardnsAdmin(TreeAdmin):
 
 
 class ExampleAdmin(admin.ModelAdmin):
-    class Media:
-        extend = False
-        js = (
-            'https://code.jquery.com/jquery-3.3.1.min.js',
-        )
     fieldsets = (
         (None, {
             'fields': ('mptt', 'treebeardmp', 'treebeardal', 'treebeardns')

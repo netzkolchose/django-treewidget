@@ -1,16 +1,12 @@
-# -*- coding: utf-8 -*-
-from __future__ import unicode_literals
 from django.db import models
 from mptt.models import MPTTModel
 from treebeard.mp_tree import MP_Node
 from treebeard.al_tree import AL_Node
 from treebeard.ns_tree import NS_Node
 from treewidget.fields import TreeForeignKey, TreeManyToManyField
-from django.utils.encoding import python_2_unicode_compatible
 
 
 # django-mptt
-@python_2_unicode_compatible
 class Mptt(MPTTModel):
     name = models.CharField(max_length=32)
     parent = TreeForeignKey(
@@ -21,7 +17,6 @@ class Mptt(MPTTModel):
 
 
 # django-treebeard
-@python_2_unicode_compatible
 class Treebeardmp(MP_Node):
     name = models.CharField(max_length=32)
 
@@ -29,7 +24,6 @@ class Treebeardmp(MP_Node):
         return '%s' % self.name
 
 
-@python_2_unicode_compatible
 class Treebeardal(AL_Node):
     name = models.CharField(max_length=32)
     parent = models.ForeignKey('self', related_name='children_set', null=True,
@@ -40,7 +34,6 @@ class Treebeardal(AL_Node):
         return '%s' % self.name
 
 
-@python_2_unicode_compatible
 class Treebeardns(NS_Node):
     name = models.CharField(max_length=32)
 

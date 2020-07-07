@@ -1,3 +1,15 @@
+if (!window.jQuery) {
+	if (window.django.jQuery) {
+			window.jQuery = window.django.jQuery;
+			window._treewidget_jQuery = window.jQuery;
+			window.reverse_jquery = true;
+	} else {
+			throw new Error('need jquery for jstree');
+	}
+} else {
+	window._treewidget_jQuery = window.jQuery;
+}
+
 /*globals jQuery, define, module, exports, require, window, document, postMessage */
 (function (factory) {
 	"use strict";
@@ -8421,3 +8433,8 @@
 	}
 
 }));
+
+if (window.reverse_jquery) {
+	window.jQuery = null;
+	delete window.jQuery;
+}

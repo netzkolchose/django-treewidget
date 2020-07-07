@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-from __future__ import unicode_literals
 from django.forms.widgets import SelectMultiple, Select
 from django.forms import ModelChoiceField, ModelMultipleChoiceField
 from django.utils.safestring import mark_safe
@@ -10,7 +8,6 @@ from django.urls import reverse, NoReverseMatch
 from treewidget.tree import TreeQuerySet, get_treetype, MPTT
 from treewidget.formatters import SelectFormatter
 from django.utils.encoding import force_text
-from django.utils.six import string_types
 
 
 TREEOPTIONS = {
@@ -36,7 +33,6 @@ class TreeSelectWidgetMixin(object):
 
     class Media:
         js = (
-            'treewidget/prepare.js',
             'treewidget/jstree.min.js',
             'treewidget/default.js',
         )
@@ -61,7 +57,7 @@ class TreeSelectWidgetMixin(object):
         # set selected to a list of str(pk)
         if not selected:
             selected = []
-        elif isinstance(selected, string_types):
+        elif isinstance(selected, str):
             selected = [selected]
         elif not hasattr(selected, '__iter__'):
             selected = [selected]

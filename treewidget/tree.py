@@ -1,7 +1,4 @@
-# -*- coding: utf-8 -*-
-from __future__ import unicode_literals
 from django.db.models import QuerySet
-from django.utils.encoding import python_2_unicode_compatible
 from django.db.models import Q, F
 from django.db.models.functions import Substr, Length
 from django.db.models import CharField, OuterRef, Subquery
@@ -246,7 +243,6 @@ class TreeQuerySet(object):
         raise UnknownTreeImplementation('dont know how to annotate _parent_pk')
 
 
-@python_2_unicode_compatible
 class TreeNode(object):
     """
     Abstract tree node proxy for common tree attribute access.
