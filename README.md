@@ -3,8 +3,8 @@
 Provides the model fields TreeForeignKey, TreeOneToOneField, TreeManyToManyField
 for tree models with a tree widget for django. Uses `jstree` (thanks to vakata).
 
-Tested with django-mptt and django-treebeard with Django 1.11 & 2.0.2.
-It will not work with Django <1.11.
+Tested with django-mptt 0.11.0 and django-treebeard 4.3.1 with Django 2.2 & 3.0.
+
 
 ### Installation ###
 
@@ -13,26 +13,13 @@ It will not work with Django <1.11.
 - for AJAX tree updates add the routes to your urls.py,
 e.g. `url(r'^treewidget/', include('treewidget.urls'))`
 
+
 ### Usage ###
 
 Just replace any foreign key, m2m or one2one tree model field with the provided counterpart.
 jstree depends on jQuery to work. This module does not provide a jQuery version, use the
 admin version or place your own version along with your other assets.
 
-### Workarounds ###
-
-If used in admin along with collapsed fieldsets, django's jQuery gets loaded to late
-and jstree will fail to load. You can work around this issue by loading a separate jQuery
-with `extend = False` at your admin class, example:
-
-```python
-class ExampleAdmin(admin.ModelAdmin):
-    class Media:
-        extend = False
-        js = (
-            'https://code.jquery.com/jquery-3.3.1.min.js',
-        )
-```
 
 ### Customization ###
 
