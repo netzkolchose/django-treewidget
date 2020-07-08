@@ -1,23 +1,21 @@
 from setuptools import setup, find_packages
 
-try:
-    import pypandoc
-    long_description = pypandoc.convert('README.md', 'rst')
-except(IOError, ImportError, RuntimeError):
-    long_description = '' 
+with open('README.md', 'r') as f:
+    long_description = f.read()
 
 setup(
     name='django-treewidget',
     packages=find_packages(exclude=['example']),
     include_package_data=True,
-    version='0.3.1',
+    version='0.4.0',
     license='MIT',
     description='treewidget for django admin',
     long_description=long_description,
+    long_description_content_type='text/markdown',
     author='Joerg Breitbart',
     author_email='j.breitbart@netzkolchose.de',
     url='https://github.com/jerch/django-treewidget',
-    download_url='https://github.com/jerch/django-treewidget/archive/0.3.1.tar.gz',
+    download_url='https://github.com/jerch/django-treewidget/archive/0.4.0.tar.gz',
     keywords=['django', 'widget', 'admin', 'tree'],
     classifiers=[
         'Development Status :: 4 - Beta',
