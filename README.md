@@ -3,8 +3,8 @@
 Provides the model fields TreeForeignKey, TreeOneToOneField, TreeManyToManyField
 for tree models with a tree widget for django. Uses `jstree` (thanks to vakata).
 
-Tested with django-mptt and django-treebeard with Django 1.11 & 2.0.2.
-It will not work with Django <1.11.
+Tested with django-mptt 0.11.0 and django-treebeard 4.3.1 with Django 2.2 & 3.0.
+
 
 ### Installation ###
 
@@ -13,26 +13,13 @@ It will not work with Django <1.11.
 - for AJAX tree updates add the routes to your urls.py,
 e.g. `url(r'^treewidget/', include('treewidget.urls'))`
 
+
 ### Usage ###
 
 Just replace any foreign key, m2m or one2one tree model field with the provided counterpart.
 jstree depends on jQuery to work. This module does not provide a jQuery version, use the
 admin version or place your own version along with your other assets.
 
-### Workarounds ###
-
-If used in admin along with collapsed fieldsets, django's jQuery gets loaded to late
-and jstree will fail to load. You can work around this issue by loading a separate jQuery
-with `extend = False` at your admin class, example:
-
-```python
-class ExampleAdmin(admin.ModelAdmin):
-    class Media:
-        extend = False
-        js = (
-            'https://code.jquery.com/jquery-3.3.1.min.js',
-        )
-```
 
 ### Customization ###
 
@@ -48,14 +35,15 @@ Note that some widget settings will override treeoptions to keep working.
 Both settings can be provided project wide in settings.py as `TREEWIDGET_SETTINGS` and
 `TREEWIDGET_TREEOPTIONS`.
 
-It is possible to render a deeper nested branch (subtree) by overriding the default
-formatter. Just set the parent id to '#' for the branch's top level entries in the
-formatter's `render` method.
+It is possible to render a deeper nested subtree by overriding the default
+formatter. Just set the parent id to '#' in the formatter's `render` method for the entries,
+that should appear at top level.
 
-**NOTE**: If you use a prefiltered queryset which data does not form a subtree
+**NOTE**: If you use a prefiltered queryset which data does not form a well-formed tree
 containing all parents up to the top level, jstree cannot render it correctly.
 With 'filtered' in settings set to `True` those querysets will be rendered by
-adding missing nodes as not selectable.
+adding missing nodes as not selectable. Make sure, that this does not leak
+sensitive tree data (if so, resort to subtree rendering).
 
 ### Example ###
 ```python
@@ -74,3 +62,20 @@ class Mptt(MPTTModel):
 Renders like this:
 
 ![screenshot](https://github.com/jerch/django-treewidget/raw/master/screenshot.png  "screenshot")
+
+
+To run the provided example project:
+
+```bash
+$> cd example
+$> pip install Django~=2.2              # or 3.0
+$> pip install -r requirements.txt
+$> ./manage.py migrate
+$> ./manage.py createsuperuser
+$> ./manage.py loaddata initial_data
+$> ./manage.py runserver
+```
+
+and point your browser to `http://localhost:8000/admin/exampleapp/example/add/`.
+After login you see the widgets in action with different settings.
+Also see `exampleapp.Example` model in admin to get an idea of several tree rendering options.

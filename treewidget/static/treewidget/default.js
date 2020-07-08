@@ -389,9 +389,4 @@
             });
         });
     });
-})(window.jQuery);
-
-if (window.reverse_jquery) {
-    window.jQuery = null;
-    delete window.jQuery;
-}
+})(window._treewidget_jQuery);  // use custom jQuery object (created during jstree loading)
