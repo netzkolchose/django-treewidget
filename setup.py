@@ -7,7 +7,7 @@ setup(
     name='django-treewidget',
     packages=find_packages(exclude=['example']),
     include_package_data=True,
-    version='0.4.1',
+    version='0.4.2',
     license='MIT',
     description='treewidget for django admin',
     long_description=long_description,
@@ -15,7 +15,7 @@ setup(
     author='Joerg Breitbart',
     author_email='j.breitbart@netzkolchose.de',
     url='https://github.com/jerch/django-treewidget',
-    download_url='https://github.com/jerch/django-treewidget/archive/0.4.1.tar.gz',
+    download_url='https://github.com/jerch/django-treewidget/archive/0.4.2.tar.gz',
     keywords=['django', 'widget', 'admin', 'tree'],
     classifiers=[
         'Development Status :: 4 - Beta',
