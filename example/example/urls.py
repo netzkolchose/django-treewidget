@@ -1,5 +1,11 @@
-from django.conf.urls import url, include
+from django.conf.urls import include
 from django.contrib import admin
+try:
+    from django.conf.urls import url
+except ImportError:
+    # django 4 and up
+    from django.urls import re_path as url
+
 
 
 urlpatterns = [
@@ -8,8 +14,6 @@ urlpatterns = [
 ]
 
 from django.conf import settings
-from django.conf.urls import include, url
-
 if settings.DEBUG:
     import debug_toolbar
     urlpatterns = [

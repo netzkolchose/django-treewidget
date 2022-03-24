@@ -7,7 +7,6 @@ from json import dumps
 from django.urls import reverse, NoReverseMatch
 from treewidget.tree import TreeQuerySet, get_treetype, MPTT
 from treewidget.formatters import SelectFormatter
-from django.utils.encoding import force_text
 
 
 TREEOPTIONS = {
