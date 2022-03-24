@@ -68,7 +68,7 @@ To run the provided example project:
 
 ```bash
 $> cd example
-$> pip install Django~=2.2              # or 3.0
+$> pip install Django~=3.2              # or 4.0
 $> pip install -r requirements.txt
 $> ./manage.py migrate
 $> ./manage.py createsuperuser
