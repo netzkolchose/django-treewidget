@@ -1,4 +1,8 @@
-from django.conf.urls import url
+try:
+    from django.conf.urls import url
+except ImportError:
+    # django 4 and up
+    from django.urls import re_path as url
 from treewidget.views import get_node, move_node
 
 urlpatterns = [
