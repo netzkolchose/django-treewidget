@@ -3,7 +3,7 @@
 Provides the model fields TreeForeignKey, TreeOneToOneField, TreeManyToManyField
 for tree models with a tree widget for django. Uses `jstree` (thanks to vakata).
 
-Tested with django-mptt 0.13.4 and django-treebeard 4.5.1 with Django 3.2 & 4.0.
+Tested with django-mptt 0.15 and django-treebeard 4.7 with Django 4.2.
 
 
 ### Installation ###
@@ -68,7 +68,7 @@ To run the provided example project:
 
 ```bash
 $> cd example
-$> pip install Django~=3.2              # or 4.0
+$> pip install Django~=4.2
 $> pip install -r requirements.txt
 $> ./manage.py migrate
 $> ./manage.py createsuperuser

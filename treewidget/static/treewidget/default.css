@@ -25,8 +25,10 @@
 .treewidget-container ul.object-tools {
     margin-left: 0 !important;
     padding-left: 0 !important;
-    margin-bottom: 12px;
+    margin-bottom: 15px;
     padding-right: 0;
+    float: none;
+    margin-top: auto;
 }
 
 .treewidget-container ul.object-tools li {
@@ -64,4 +66,16 @@
 }
 .jstree-default .jstree-disabled {
     color: #888;
+}
+
+
+@media (max-width: 767px) {
+    .treewidget-container ul.object-tools {
+        margin-left: 0 !important;
+        padding-left: 0 !important;
+        margin-bottom: auto;
+    }
+    .treewidget-container ul.object-tools li {
+        vertical-align: text-bottom;
+    }
 }
