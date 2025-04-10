@@ -139,7 +139,7 @@ class TreeSelectWidgetMixin(object):
             'id': attr_name,
             'search': self.settings.get('search', False),
             'show_buttons': self.settings.get('show_buttons', False),
-            'json_data': mark_safe(json_data.replace('</script', '<\/script')),
+            'json_data': mark_safe(json_data.replace('</script', '<\\/script')),
             'disabled': attrs.get('disabled')
         }
 
